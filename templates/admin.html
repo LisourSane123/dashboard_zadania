@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel zarządzania zadaniami</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📋 Panel zarządzania zadaniami</h1>
+            <p class="subtitle">Dodawaj, edytuj i usuwaj zadania wyświetlane na ekranie</p>
+        </header>
+
+        <!-- ─── Add task form ─── -->
+        <section class="card">
+            <h2>➕ Dodaj nowe zadanie</h2>
+            <form id="add-form">
+                <div class="form-group">
+                    <label for="title">Nazwa zadania *</label>
+                    <input type="text" id="title" placeholder="np. Podlej kwiaty" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Opis (opcjonalnie)</label>
+                    <input type="text" id="description" placeholder="np. Wszystkie doniczki na parapecie">
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="is-recurring">
+                        Zadanie cykliczne
+                    </label>
+                </div>
+                <div id="recurrence-fields" class="recurrence-fields hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="recurrence-value">Co ile</label>
+                            <input type="number" id="recurrence-value" min="1" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="recurrence-type">Jednostka</label>
+                            <select id="recurrence-type">
+                                <option value="days">Dni</option>
+                                <option value="weeks">Tygodni</option>
+                                <option value="months">Miesięcy</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Dodaj zadanie</button>
+            </form>
+        </section>
+
+        <!-- ─── Tasks list ─── -->
+        <section class="card">
+            <h2>📝 Wszystkie aktywne zadania</h2>
+            <div class="tabs">
+                <button class="tab active" data-filter="all">Wszystkie</button>
+                <button class="tab" data-filter="recurring">Cykliczne</button>
+                <button class="tab" data-filter="one-time">Jednorazowe</button>
+            </div>
+            <div id="tasks-list" class="admin-tasks-list">
+                <div class="loading">Ładowanie...</div>
+            </div>
+        </section>
+
+        <!-- ─── Edit modal ─── -->
+        <div id="edit-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>✏️ Edytuj zadanie</h3>
+                    <button class="modal-close" onclick="closeModal()">&times;</button>
+                </div>
+                <form id="edit-form">
+                    <input type="hidden" id="edit-id">
+                    <div class="form-group">
+                        <label for="edit-title">Nazwa zadania</label>
+                        <input type="text" id="edit-title" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-description">Opis</label>
+                        <input type="text" id="edit-description">
+                    </div>
+                    <div id="edit-recurrence-fields">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit-recurrence-value">Co ile</label>
+                                <input type="number" id="edit-recurrence-value" min="1" value="1">
+                            </div>
+                            <div class="form-group">
+                                <label for="edit-recurrence-type">Jednostka</label>
+                                <select id="edit-recurrence-type">
+                                    <option value="days">Dni</option>
+                                    <option value="weeks">Tygodni</option>
+                                    <option value="months">Miesięcy</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" onclick="closeModal()">Anuluj</button>
+                        <button type="submit" class="btn btn-primary">Zapisz zmiany</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Toast notification -->
+        <div id="toast" class="toast hidden"></div>
+    </div>
+
+    <script src="/static/js/admin.js"></script>
+</body>
+</html>

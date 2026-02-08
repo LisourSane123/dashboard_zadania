@@ -1,0 +1,353 @@
+/* ─── Reset ─── */
+*, *::before, *::after {
+    margin: 0; padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+    background: #0f0f1a;
+    color: #e0e0e0;
+    min-height: 100vh;
+    padding-bottom: 40px;
+}
+
+.container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* ─── Header ─── */
+header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+header h1 {
+    font-size: 24px;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.subtitle {
+    color: #888;
+    font-size: 14px;
+}
+
+/* ─── Card ─── */
+.card {
+    background: #1a1a2e;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    border: 1px solid #2a2a4a;
+}
+
+.card h2 {
+    font-size: 18px;
+    margin-bottom: 16px;
+    color: #fff;
+}
+
+/* ─── Form ─── */
+.form-group {
+    margin-bottom: 14px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    color: #aaa;
+    margin-bottom: 4px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background: #0f0f1a;
+    color: #eee;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: #e94560;
+}
+
+.form-row {
+    display: flex;
+    gap: 12px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.checkbox-label {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 15px !important;
+    color: #ddd !important;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #e94560;
+}
+
+.recurrence-fields {
+    background: rgba(233, 69, 96, 0.05);
+    border: 1px dashed #e9456050;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 14px;
+}
+
+/* ─── Buttons ─── */
+.btn {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.btn:active {
+    transform: scale(0.97);
+}
+
+.btn-primary {
+    background: #e94560;
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: #d63851;
+}
+
+.btn-secondary {
+    background: #333;
+    color: #ddd;
+}
+
+.btn-secondary:hover {
+    background: #444;
+}
+
+.btn-danger {
+    background: transparent;
+    color: #e94560;
+    border: 1px solid #e94560;
+    padding: 6px 14px;
+    font-size: 13px;
+}
+
+.btn-danger:hover {
+    background: rgba(233, 69, 96, 0.15);
+}
+
+.btn-edit {
+    background: transparent;
+    color: #00b4d8;
+    border: 1px solid #00b4d8;
+    padding: 6px 14px;
+    font-size: 13px;
+}
+
+.btn-edit:hover {
+    background: rgba(0, 180, 216, 0.15);
+}
+
+/* ─── Tabs ─── */
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.tab {
+    padding: 6px 16px;
+    background: #0f0f1a;
+    border: 1px solid #333;
+    border-radius: 20px;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.tab.active {
+    background: #e94560;
+    color: #fff;
+    border-color: #e94560;
+}
+
+.tab:hover {
+    border-color: #e94560;
+}
+
+/* ─── Admin task list ─── */
+.admin-tasks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.admin-task {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #0f0f1a;
+    border-radius: 10px;
+    padding: 14px 16px;
+    border: 1px solid #2a2a4a;
+    transition: border-color 0.2s;
+}
+
+.admin-task:hover {
+    border-color: #444;
+}
+
+.admin-task-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.admin-task-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #eee;
+    margin-bottom: 2px;
+}
+
+.admin-task-meta {
+    font-size: 12px;
+    color: #777;
+}
+
+.admin-task-meta .badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.badge.recurring {
+    background: rgba(233, 69, 96, 0.2);
+    color: #e94560;
+}
+
+.badge.one-time {
+    background: rgba(0, 180, 216, 0.2);
+    color: #00b4d8;
+}
+
+.admin-task-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+.loading {
+    text-align: center;
+    color: #666;
+    padding: 20px;
+}
+
+.empty-state {
+    text-align: center;
+    color: #555;
+    padding: 30px;
+    font-size: 14px;
+}
+
+/* ─── Modal ─── */
+.modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.modal-content {
+    background: #1a1a2e;
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 500px;
+    border: 1px solid #2a2a4a;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.modal-header h3 {
+    font-size: 18px;
+    color: #fff;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.modal-close:hover {
+    color: #fff;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+
+/* ─── Toast ─── */
+.toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #2ecc71;
+    color: #fff;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 2000;
+    transition: opacity 0.3s;
+}
+
+.toast.error {
+    background: #e94560;
+}
+
+/* ─── Utility ─── */
+.hidden {
+    display: none !important;
+}

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Zadania</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+    <!-- Sleep overlay -->
+    <div id="sleep-overlay" class="sleep-overlay hidden" onclick="wakeUp()">
+        <div class="sleep-text">Dotknij aby obudzić</div>
+    </div>
+
+    <!-- Night mode overlay -->
+    <div id="night-overlay" class="night-overlay hidden"></div>
+
+    <!-- Header -->
+    <header>
+        <div class="date-display" id="date-display"></div>
+        <div class="time-display" id="time-display"></div>
+    </header>
+
+    <!-- Tasks list -->
+    <main id="tasks-container">
+        <div id="tasks-list" class="tasks-list"></div>
+
+        <!-- All done message -->
+        <div id="all-done" class="all-done hidden">
+            <div class="all-done-icon">✅</div>
+            <div class="all-done-text">Wszystkie zadania wykonane!</div>
+            <div class="all-done-sub">Dobra robota 🎉</div>
+        </div>
+
+        <!-- No tasks at all -->
+        <div id="no-tasks" class="all-done hidden">
+            <div class="all-done-icon">📋</div>
+            <div class="all-done-text">Brak zadań</div>
+            <div class="all-done-sub">Dodaj zadania przez panel administracji</div>
+        </div>
+    </main>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

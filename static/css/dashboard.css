@@ -1,0 +1,234 @@
+/* ─── Reset & base ─── */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: pan-x;
+    cursor: default;
+}
+
+/* ─── Header ─── */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background: #16213e;
+    border-bottom: 2px solid #0f3460;
+    height: 50px;
+    flex-shrink: 0;
+}
+
+.date-display {
+    font-size: 16px;
+    color: #a8b2d1;
+}
+
+.time-display {
+    font-size: 20px;
+    font-weight: 700;
+    color: #e94560;
+}
+
+/* ─── Main container ─── */
+main {
+    height: calc(100% - 50px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 0;
+}
+
+/* ─── Task list ─── */
+.tasks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 12px;
+}
+
+/* ─── Single task ─── */
+.task-item {
+    position: relative;
+    background: #16213e;
+    border-radius: 12px;
+    padding: 14px 18px;
+    border-left: 5px solid #0f3460;
+    overflow: hidden;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    touch-action: pan-x;
+}
+
+.task-item.recurring {
+    border-left-color: #e94560;
+}
+
+.task-item.one-time {
+    border-left-color: #00b4d8;
+}
+
+.task-item .task-title {
+    font-size: 17px;
+    font-weight: 600;
+    color: #eee;
+    margin-bottom: 2px;
+}
+
+.task-item .task-desc {
+    font-size: 13px;
+    color: #8892b0;
+    line-height: 1.3;
+}
+
+.task-item .task-badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-top: 4px;
+    font-weight: 600;
+}
+
+.task-badge.recurring {
+    background: rgba(233, 69, 96, 0.2);
+    color: #e94560;
+}
+
+.task-badge.one-time {
+    background: rgba(0, 180, 216, 0.2);
+    color: #00b4d8;
+}
+
+/* Swipe background reveal */
+.task-item .swipe-bg {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 24px;
+    font-size: 28px;
+    color: #fff;
+    border-radius: 12px;
+    z-index: -1;
+}
+
+.swipe-bg.complete {
+    background: #2ecc71;
+}
+
+/* Completed animation */
+.task-item.completing {
+    transform: translateX(-110%);
+    opacity: 0;
+}
+
+.task-item.completed-today {
+    opacity: 0.4;
+    border-left-color: #555 !important;
+}
+
+.task-item.completed-today .task-title {
+    text-decoration: line-through;
+    color: #888;
+}
+
+/* ─── Swipe hint arrow ─── */
+.task-item .swipe-hint {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 16px;
+    color: #444;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+/* ─── All-done screen ─── */
+.all-done {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    padding: 40px;
+}
+
+.all-done-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+}
+
+.all-done-text {
+    font-size: 24px;
+    font-weight: 700;
+    color: #eee;
+    margin-bottom: 8px;
+}
+
+.all-done-sub {
+    font-size: 16px;
+    color: #8892b0;
+}
+
+/* ─── Sleep overlay ─── */
+.sleep-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #000;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.sleep-text {
+    color: #333;
+    font-size: 14px;
+}
+
+/* ─── Night overlay ─── */
+.night-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #000;
+    z-index: 99999;
+    pointer-events: all;
+}
+
+/* ─── Utility ─── */
+.hidden {
+    display: none !important;
+}
+
+/* ─── Scrollbar (thin) ─── */
+main::-webkit-scrollbar {
+    width: 4px;
+}
+
+main::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+main::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 4px;
+}
