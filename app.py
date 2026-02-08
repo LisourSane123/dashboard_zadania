@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from database import init_db, add_task, update_task, delete_task, get_all_tasks, \
-    get_recurring_tasks, get_task, complete_task, get_tasks_for_today, get_completion_history
+    get_recurring_tasks, get_task, complete_task, get_tasks_for_today, get_completion_history, \
+    reorder_tasks
 
 app = Flask(__name__)
 
@@ -76,13 +77,24 @@ def api_update_task(task_id):
     description = data.get("description")
     recurrence_type = data.get("recurrence_type")
     recurrence_value = data.get("recurrence_value")
-    update_task(task_id, title, description, recurrence_type, recurrence_value)
+    sort_order = data.get("sort_order")
+    update_task(task_id, title, description, recurrence_type, recurrence_value, sort_order)
     return jsonify({"status": "ok"})
 
 
 @app.route("/api/tasks/<int:task_id>", methods=["DELETE"])
 def api_delete_task(task_id):
     delete_task(task_id)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/tasks/reorder", methods=["POST"])
+def api_reorder_tasks():
+    data = request.get_json(force=True)
+    task_ids = data.get("task_ids", [])
+    if not task_ids:
+        return jsonify({"status": "error", "message": "No task IDs provided"}), 400
+    reorder_tasks(task_ids)
     return jsonify({"status": "ok"})
 
 

@@ -1,5 +1,6 @@
 // ════════════════════════════════════════════════
 //  Dashboard – Touchscreen Task Display
+//  With filter bar & touch drag-and-drop reorder
 // ════════════════════════════════════════════════
 
 (function () {
@@ -11,6 +12,7 @@
     const NIGHT_END_HOUR = 5;             // 05:00
     const REFRESH_INTERVAL_MS = 30000;    // Refresh tasks every 30s
     const SWIPE_THRESHOLD = 100;          // px needed to count as swipe
+    const HOLD_DURATION_MS = 500;         // hold time before drag starts
 
     // ─── DOM refs ───
     const tasksList = document.getElementById("tasks-list");
@@ -25,6 +27,7 @@
     let sleepTimer = null;
     let isSleeping = false;
     let tasks = [];
+    let currentFilter = "all"; // "all" | "one-time" | "recurring"
 
     // ════════════════════════════════════════════
     //  Clock & date
@@ -85,6 +88,33 @@
     document.addEventListener("click", onActivity, { passive: true });
 
     // ════════════════════════════════════════════
+    //  Filter bar
+    // ════════════════════════════════════════════
+
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const filter = btn.dataset.filter;
+
+            // Toggle: if clicking the active filter (not "all"), go back to "all"
+            if (filter === currentFilter && filter !== "all") {
+                currentFilter = "all";
+            } else {
+                currentFilter = filter;
+            }
+
+            // Update active state
+            document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+            if (currentFilter === "all") {
+                document.querySelector('[data-filter="all"]').classList.add("active");
+            } else {
+                document.querySelector(`[data-filter="${currentFilter}"]`).classList.add("active");
+            }
+
+            renderTasks();
+        });
+    });
+
+    // ════════════════════════════════════════════
     //  Fetch & render tasks
     // ════════════════════════════════════════════
 
@@ -98,11 +128,19 @@
         }
     }
 
+    function getFilteredTasks() {
+        if (currentFilter === "one-time") return tasks.filter(t => !t.is_recurring);
+        if (currentFilter === "recurring") return tasks.filter(t => t.is_recurring);
+        return tasks;
+    }
+
     function renderTasks() {
         tasksList.innerHTML = "";
 
-        const pending = tasks.filter(t => !t.completed_today);
-        const completed = tasks.filter(t => t.completed_today);
+        const filtered = getFilteredTasks();
+        const pending = filtered.filter(t => !t.completed_today);
+        const completed = filtered.filter(t => t.completed_today);
+        const allPending = tasks.filter(t => !t.completed_today);
 
         if (tasks.length === 0) {
             allDone.classList.add("hidden");
@@ -112,13 +150,24 @@
 
         noTasks.classList.add("hidden");
 
-        if (pending.length === 0) {
+        if (filtered.length === 0) {
+            allDone.classList.add("hidden");
+            const emptyEl = document.createElement("div");
+            emptyEl.className = "all-done";
+            emptyEl.innerHTML = `
+                <div class="all-done-icon">${currentFilter === "one-time" ? "📌" : "🔄"}</div>
+                <div class="all-done-text">Brak zadań w tej kategorii</div>
+            `;
+            tasksList.appendChild(emptyEl);
+            return;
+        }
+
+        if (allPending.length === 0) {
             allDone.classList.remove("hidden");
         } else {
             allDone.classList.add("hidden");
         }
 
-        // Render pending first, then completed
         [...pending, ...completed].forEach(task => {
             const el = createTaskElement(task);
             tasksList.appendChild(el);
@@ -131,6 +180,12 @@
             (task.is_recurring ? " recurring" : " one-time") +
             (task.completed_today ? " completed-today" : "");
         el.dataset.taskId = task.id;
+
+        // Drag handle
+        const handle = document.createElement("div");
+        handle.className = "drag-handle";
+        handle.textContent = "⠿";
+        el.appendChild(handle);
 
         // Swipe background
         const swipeBg = document.createElement("div");
@@ -169,94 +224,277 @@
             hint.textContent = "⟵";
             el.appendChild(hint);
 
-            // Attach swipe handling
-            attachSwipe(el, task);
+            // Attach swipe + drag handling
+            attachSwipeAndDrag(el, task);
         }
 
         return el;
     }
 
     // ════════════════════════════════════════════
-    //  Swipe-to-complete
+    //  Swipe-to-complete + Hold-to-drag reorder
     // ════════════════════════════════════════════
 
-    function attachSwipe(el, task) {
-        let startX = 0;
-        let currentX = 0;
-        let isDragging = false;
+    let dragState = {
+        active: false,
+        el: null,
+        placeholder: null,
+        startY: 0,
+        offsetY: 0,
+        holdTimer: null,
+    };
 
+    function attachSwipeAndDrag(el, task) {
+        let startX = 0, startY = 0;
+        let currentX = 0;
+        let isSwiping = false;
+        let directionDecided = false;
+
+        // ─── Touch events ───
         el.addEventListener("touchstart", (e) => {
-            startX = e.touches[0].clientX;
+            const touch = e.touches[0];
+            startX = touch.clientX;
+            startY = touch.clientY;
             currentX = startX;
-            isDragging = true;
-            el.style.transition = "none";
+            isSwiping = false;
+            directionDecided = false;
+
+            dragState.holdTimer = setTimeout(() => {
+                if (!directionDecided || !isSwiping) {
+                    startDrag(el, touch);
+                }
+            }, HOLD_DURATION_MS);
         }, { passive: true });
 
         el.addEventListener("touchmove", (e) => {
-            if (!isDragging) return;
-            currentX = e.touches[0].clientX;
-            const diff = currentX - startX;
-            // Only allow left swipe
-            if (diff < 0) {
-                el.style.transform = `translateX(${diff}px)`;
+            const touch = e.touches[0];
+            currentX = touch.clientX;
+            const dx = currentX - startX;
+            const dy = touch.clientY - startY;
+
+            if (dragState.active && dragState.el === el) {
+                e.preventDefault();
+                moveDrag(touch);
+                return;
             }
-        }, { passive: true });
+
+            if (!directionDecided && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+                directionDecided = true;
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    isSwiping = true;
+                    clearTimeout(dragState.holdTimer);
+                } else {
+                    clearTimeout(dragState.holdTimer);
+                    return;
+                }
+            }
+
+            if (isSwiping && dx < 0) {
+                el.style.transition = "none";
+                el.style.transform = `translateX(${dx}px)`;
+            }
+        }, { passive: false });
 
         el.addEventListener("touchend", () => {
-            if (!isDragging) return;
-            isDragging = false;
-            const diff = currentX - startX;
+            clearTimeout(dragState.holdTimer);
 
-            if (diff < -SWIPE_THRESHOLD) {
-                // Complete task
-                el.style.transition = "transform 0.3s ease, opacity 0.3s ease";
-                el.classList.add("completing");
-                completeTask(task.id);
-                setTimeout(() => {
-                    fetchTasks();
-                }, 350);
-            } else {
-                // Snap back
-                el.style.transition = "transform 0.2s ease";
-                el.style.transform = "translateX(0)";
+            if (dragState.active && dragState.el === el) {
+                endDrag();
+                return;
             }
+
+            if (isSwiping) {
+                const diff = currentX - startX;
+                if (diff < -SWIPE_THRESHOLD) {
+                    el.style.transition = "transform 0.3s ease, opacity 0.3s ease";
+                    el.classList.add("completing");
+                    completeTask(task.id);
+                    setTimeout(() => fetchTasks(), 350);
+                } else {
+                    el.style.transition = "transform 0.2s ease";
+                    el.style.transform = "translateX(0)";
+                }
+            }
+            isSwiping = false;
+            directionDecided = false;
         });
 
-        // Mouse fallback for testing
+        el.addEventListener("touchcancel", () => {
+            clearTimeout(dragState.holdTimer);
+            if (dragState.active && dragState.el === el) cancelDrag();
+            el.style.transition = "transform 0.2s ease";
+            el.style.transform = "translateX(0)";
+        });
+
+        // ─── Mouse events (testing) ───
         el.addEventListener("mousedown", (e) => {
             startX = e.clientX;
+            startY = e.clientY;
             currentX = startX;
-            isDragging = true;
+            isSwiping = true;
+            directionDecided = false;
             el.style.transition = "none";
+
+            dragState.holdTimer = setTimeout(() => {
+                startDrag(el, e);
+                isSwiping = false;
+            }, HOLD_DURATION_MS);
+
             e.preventDefault();
         });
 
-        document.addEventListener("mousemove", (e) => {
-            if (!isDragging || el !== e.target.closest(".task-item")) return;
-            currentX = e.clientX;
-            const diff = currentX - startX;
-            if (diff < 0) {
-                el.style.transform = `translateX(${diff}px)`;
+        const onMouseMove = (e) => {
+            if (dragState.active && dragState.el === el) {
+                moveDrag(e);
+                return;
             }
-        });
+            if (!isSwiping) return;
+            currentX = e.clientX;
+            const dx = currentX - startX;
+            const dy = e.clientY - startY;
 
-        document.addEventListener("mouseup", () => {
-            if (!isDragging) return;
-            isDragging = false;
+            if (!directionDecided && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+                directionDecided = true;
+                if (Math.abs(dx) <= Math.abs(dy)) {
+                    clearTimeout(dragState.holdTimer);
+                    isSwiping = false;
+                    return;
+                }
+                clearTimeout(dragState.holdTimer);
+            }
+
+            if (dx < 0) el.style.transform = `translateX(${dx}px)`;
+        };
+
+        const onMouseUp = () => {
+            clearTimeout(dragState.holdTimer);
+            if (dragState.active && dragState.el === el) { endDrag(); return; }
+            if (!isSwiping) return;
+            isSwiping = false;
             const diff = currentX - startX;
-
             if (diff < -SWIPE_THRESHOLD) {
                 el.style.transition = "transform 0.3s ease, opacity 0.3s ease";
                 el.classList.add("completing");
                 completeTask(task.id);
-                setTimeout(() => {
-                    fetchTasks();
-                }, 350);
+                setTimeout(() => fetchTasks(), 350);
             } else {
                 el.style.transition = "transform 0.2s ease";
                 el.style.transform = "translateX(0)";
             }
-        });
+        };
+
+        document.addEventListener("mousemove", onMouseMove);
+        document.addEventListener("mouseup", onMouseUp);
+    }
+
+    // ═══ Drag reorder logic ═══
+
+    function startDrag(el, event) {
+        dragState.active = true;
+        dragState.el = el;
+
+        const rect = el.getBoundingClientRect();
+        dragState.offsetY = (event.clientY || event.touches?.[0]?.clientY || 0) - rect.top;
+
+        el.classList.add("dragging");
+        el.style.transition = "none";
+        el.style.transform = "";
+        el.style.position = "fixed";
+        el.style.top = rect.top + "px";
+        el.style.left = rect.left + "px";
+        el.style.width = rect.width + "px";
+        el.style.zIndex = "1000";
+
+        dragState.placeholder = document.createElement("div");
+        dragState.placeholder.style.height = rect.height + "px";
+        dragState.placeholder.style.margin = "3px 0";
+        dragState.placeholder.style.borderRadius = "12px";
+        dragState.placeholder.style.border = "2px dashed #e94560";
+        dragState.placeholder.style.background = "rgba(233, 69, 96, 0.05)";
+        el.parentNode.insertBefore(dragState.placeholder, el);
+
+        if (navigator.vibrate) navigator.vibrate(50);
+    }
+
+    function moveDrag(event) {
+        if (!dragState.active) return;
+        const y = (event.clientY || event.touches?.[0]?.clientY || 0);
+        dragState.el.style.top = (y - dragState.offsetY) + "px";
+
+        const items = Array.from(tasksList.querySelectorAll(".task-item:not(.dragging):not(.completed-today)"));
+        items.forEach(item => item.classList.remove("drag-over"));
+
+        for (const item of items) {
+            const rect = item.getBoundingClientRect();
+            if (y < rect.top + rect.height / 2) {
+                item.classList.add("drag-over");
+                tasksList.insertBefore(dragState.placeholder, item);
+                return;
+            }
+        }
+        const lastPending = items[items.length - 1];
+        if (lastPending) tasksList.insertBefore(dragState.placeholder, lastPending.nextSibling);
+    }
+
+    function endDrag() {
+        if (!dragState.active) return;
+        const el = dragState.el;
+        tasksList.insertBefore(el, dragState.placeholder);
+        dragState.placeholder.remove();
+
+        el.classList.remove("dragging");
+        el.style.position = "";
+        el.style.top = "";
+        el.style.left = "";
+        el.style.width = "";
+        el.style.zIndex = "";
+        el.style.transform = "";
+        el.style.transition = "";
+
+        tasksList.querySelectorAll(".task-item").forEach(i => i.classList.remove("drag-over"));
+        dragState.active = false;
+        dragState.el = null;
+        dragState.placeholder = null;
+
+        saveOrder();
+    }
+
+    function cancelDrag() {
+        if (!dragState.active) return;
+        if (dragState.placeholder) dragState.placeholder.remove();
+        const el = dragState.el;
+        el.classList.remove("dragging");
+        el.style.position = "";
+        el.style.top = "";
+        el.style.left = "";
+        el.style.width = "";
+        el.style.zIndex = "";
+        el.style.transform = "";
+        el.style.transition = "";
+        tasksList.querySelectorAll(".task-item").forEach(i => i.classList.remove("drag-over"));
+        dragState.active = false;
+        dragState.el = null;
+        dragState.placeholder = null;
+    }
+
+    async function saveOrder() {
+        const orderedIds = Array.from(tasksList.querySelectorAll(".task-item"))
+            .map(el => parseInt(el.dataset.taskId))
+            .filter(id => !isNaN(id));
+
+        const visibleSet = new Set(orderedIds);
+        const hiddenIds = tasks.filter(t => !visibleSet.has(t.id)).map(t => t.id);
+        const allIds = [...orderedIds, ...hiddenIds];
+
+        try {
+            await fetch("/api/tasks/reorder", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ task_ids: allIds }),
+            });
+        } catch (e) {
+            console.error("Error saving order:", e);
+        }
     }
 
     async function completeTask(taskId) {

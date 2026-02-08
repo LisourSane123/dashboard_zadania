@@ -101,16 +101,26 @@
         }
 
         tasksList.innerHTML = "";
-        filtered.forEach(task => {
+        filtered.forEach((task, index) => {
             const el = document.createElement("div");
             el.className = "admin-task";
+            el.dataset.taskId = task.id;
 
             const recLabels = { days: "dni", weeks: "tyg.", months: "mies." };
             const metaText = task.is_recurring
                 ? `<span class="badge recurring">🔄 Co ${task.recurrence_value} ${recLabels[task.recurrence_type] || ""}</span>`
                 : `<span class="badge one-time">📌 Jednorazowe</span>`;
 
+            const posInAll = allTasks.findIndex(t => t.id === task.id);
+            const isFirst = posInAll === 0;
+            const isLast = posInAll === allTasks.length - 1;
+
             el.innerHTML = `
+                <div class="admin-task-order">
+                    <button class="btn-order" ${isFirst ? 'disabled' : ''} onclick="moveTask(${task.id}, 'up')" title="Przesuń wyżej">▲</button>
+                    <span class="order-num">${posInAll + 1}</span>
+                    <button class="btn-order" ${isLast ? 'disabled' : ''} onclick="moveTask(${task.id}, 'down')" title="Przesuń niżej">▼</button>
+                </div>
                 <div class="admin-task-info">
                     <div class="admin-task-title">${escHtml(task.title)}</div>
                     <div class="admin-task-meta">
@@ -126,6 +136,32 @@
             tasksList.appendChild(el);
         });
     }
+
+    // ─── Move task up/down ───
+    window.moveTask = async function (taskId, direction) {
+        const idx = allTasks.findIndex(t => t.id === taskId);
+        if (idx === -1) return;
+
+        const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+        if (swapIdx < 0 || swapIdx >= allTasks.length) return;
+
+        // Swap in local array
+        [allTasks[idx], allTasks[swapIdx]] = [allTasks[swapIdx], allTasks[idx]];
+
+        // Send new order to backend
+        const taskIds = allTasks.map(t => t.id);
+        try {
+            await fetch("/api/tasks/reorder", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ task_ids: taskIds }),
+            });
+            renderTasks();
+        } catch (err) {
+            showToast("Błąd zmiany kolejności", true);
+            fetchTasks(); // revert
+        }
+    };
 
     // ─── Delete task ───
     window.deleteTask = async function (taskId) {

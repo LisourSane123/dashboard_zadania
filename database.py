@@ -23,6 +23,7 @@ def init_db():
             is_recurring INTEGER NOT NULL DEFAULT 0,
             recurrence_type TEXT DEFAULT NULL,
             recurrence_value INTEGER DEFAULT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
             active INTEGER NOT NULL DEFAULT 1
         );
@@ -34,22 +35,35 @@ def init_db():
             FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );
     """)
+    # Migration: add sort_order column if missing (existing databases)
+    try:
+        conn.execute("ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
+        # Assign initial sort_order based on existing id order
+        rows = conn.execute("SELECT id FROM tasks ORDER BY id").fetchall()
+        for idx, row in enumerate(rows):
+            conn.execute("UPDATE tasks SET sort_order = ? WHERE id = ?", (idx, row["id"]))
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
     conn.commit()
     conn.close()
 
 
 # --- Task CRUD ---
 
-def add_task(title, description="", is_recurring=False, recurrence_type=None, recurrence_value=None):
+def add_task(title, description="", is_recurring=False, recurrence_type=None, recurrence_value=None, sort_order=None):
     """Add a new task.
     recurrence_type: 'days', 'weeks', 'months'
     recurrence_value: integer (e.g., every 2 days)
     """
     conn = get_db()
+    if sort_order is None:
+        row = conn.execute("SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM tasks").fetchone()
+        sort_order = row["next_order"]
     cur = conn.execute(
-        """INSERT INTO tasks (title, description, is_recurring, recurrence_type, recurrence_value)
-           VALUES (?, ?, ?, ?, ?)""",
-        (title, description, int(is_recurring), recurrence_type, recurrence_value)
+        """INSERT INTO tasks (title, description, is_recurring, recurrence_type, recurrence_value, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (title, description, int(is_recurring), recurrence_type, recurrence_value, sort_order)
     )
     task_id = cur.lastrowid
     conn.commit()
@@ -57,7 +71,7 @@ def add_task(title, description="", is_recurring=False, recurrence_type=None, re
     return task_id
 
 
-def update_task(task_id, title=None, description=None, recurrence_type=None, recurrence_value=None):
+def update_task(task_id, title=None, description=None, recurrence_type=None, recurrence_value=None, sort_order=None):
     conn = get_db()
     fields = []
     values = []
@@ -73,6 +87,9 @@ def update_task(task_id, title=None, description=None, recurrence_type=None, rec
     if recurrence_value is not None:
         fields.append("recurrence_value = ?")
         values.append(int(recurrence_value))
+    if sort_order is not None:
+        fields.append("sort_order = ?")
+        values.append(int(sort_order))
     if not fields:
         conn.close()
         return
@@ -91,7 +108,7 @@ def delete_task(task_id):
 
 def get_all_tasks():
     conn = get_db()
-    rows = conn.execute("SELECT * FROM tasks WHERE active = 1 ORDER BY id").fetchall()
+    rows = conn.execute("SELECT * FROM tasks WHERE active = 1 ORDER BY sort_order, id").fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -99,10 +116,19 @@ def get_all_tasks():
 def get_recurring_tasks():
     conn = get_db()
     rows = conn.execute(
-        "SELECT * FROM tasks WHERE active = 1 AND is_recurring = 1 ORDER BY id"
+        "SELECT * FROM tasks WHERE active = 1 AND is_recurring = 1 ORDER BY sort_order, id"
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def reorder_tasks(task_ids):
+    """Set sort_order for tasks based on the order of IDs provided."""
+    conn = get_db()
+    for idx, tid in enumerate(task_ids):
+        conn.execute("UPDATE tasks SET sort_order = ? WHERE id = ?", (idx, tid))
+    conn.commit()
+    conn.close()
 
 
 def get_task(task_id):
