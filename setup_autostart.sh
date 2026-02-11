@@ -72,22 +72,48 @@ echo "  Utworzono: ~/.config/autostart/dashboard-zadania.desktop"
 if [ -d "$HOME/.config/labwc" ] || command -v labwc &>/dev/null; then
     mkdir -p "$HOME/.config/labwc"
     touch "$HOME/.config/labwc/autostart"
-    # Usuń stary wpis jeśli istnieje
     sed -i '\|dashboard_zadania|d' "$HOME/.config/labwc/autostart" 2>/dev/null || true
     echo "bash $KIOSK_SCRIPT &" >> "$HOME/.config/labwc/autostart"
     echo "  Dodano wpis do: ~/.config/labwc/autostart"
 fi
 
-# Metoda C: LXDE autostart (starsze RPi OS / tryb X11)
+# Metoda C: LXDE autostart (RPi OS z X11)
 LXDE_AUTOSTART_DIR="$HOME/.config/lxsession/LXDE-pi"
-if [ -d "$LXDE_AUTOSTART_DIR" ]; then
-    AUTOSTART_FILE="$LXDE_AUTOSTART_DIR/autostart"
-    if [ -f "$AUTOSTART_FILE" ]; then
-        sed -i '\|dashboard_zadania|d' "$AUTOSTART_FILE" 2>/dev/null || true
-        echo "@bash $KIOSK_SCRIPT" >> "$AUTOSTART_FILE"
-        echo "  Dodano wpis do: $AUTOSTART_FILE"
-    fi
+mkdir -p "$LXDE_AUTOSTART_DIR"
+AUTOSTART_FILE="$LXDE_AUTOSTART_DIR/autostart"
+if [ ! -f "$AUTOSTART_FILE" ]; then
+    cat > "$AUTOSTART_FILE" << EOF
+@lxpanel --profile LXDE-pi
+@pcmanfm --desktop --profile LXDE-pi
+EOF
 fi
+sed -i '\|dashboard_zadania|d' "$AUTOSTART_FILE" 2>/dev/null || true
+echo "@bash $KIOSK_SCRIPT" >> "$AUTOSTART_FILE"
+echo "  Dodano wpis do: $AUTOSTART_FILE"
+
+# Metoda D: systemd user service (najbardziej niezawodna)
+mkdir -p "$HOME/.config/systemd/user"
+cat > "$HOME/.config/systemd/user/dashboard-zadania.service" << EOF
+[Unit]
+Description=Dashboard Zadań Kiosk
+After=graphical-session.target
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0
+ExecStart=/bin/bash $KIOSK_SCRIPT
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+systemctl --user daemon-reload 2>/dev/null || true
+systemctl --user enable dashboard-zadania.service 2>/dev/null || true
+echo "  Utworzono systemd user service: dashboard-zadania.service"
+
+# Włącz lingering (żeby user services startowały bez logowania)
+sudo loginctl enable-linger "$USER" 2>/dev/null || true
 
 # ─── Podsumowanie ───
 IP_ADDR=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "<adres-ip>")

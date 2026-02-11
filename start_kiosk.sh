@@ -7,6 +7,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/venv"
+KIOSK_PROFILE="$SCRIPT_DIR/.chromium-kiosk"
 SERVER_PORT=5000
 DASHBOARD_URL="http://localhost:${SERVER_PORT}/"
 
@@ -20,9 +21,14 @@ fi
 echo "▶ Uruchamianie serwera Flask..."
 cd "$SCRIPT_DIR"
 
-# Zabij poprzednie instancje
+# Zabij poprzednie instancje serwera
 pkill -f "python.*app.py" 2>/dev/null || true
-sleep 1
+
+# Zabij KAŻDĄ instancję Chromium — inaczej nowy --kiosk
+# otworzy URL w istniejącej sesji i natychmiast zakończy proces
+pkill -a chromium 2>/dev/null || true
+pkill -a chromium-browser 2>/dev/null || true
+sleep 2
 
 # Uruchom serwer z venv Python
 "$VENV_DIR/bin/python" app.py &
@@ -46,22 +52,19 @@ if [ "$SERVER_READY" -eq 0 ]; then
 fi
 
 # ─── Konfiguracja ekranu ───
-# Wykryj serwer wyświetlania i dostosuj ustawienia
+CHROMIUM_PLATFORM_FLAGS=""
 if [ -n "${WAYLAND_DISPLAY:-}" ]; then
     echo "  Środowisko: Wayland"
     CHROMIUM_PLATFORM_FLAGS="--ozone-platform=wayland"
 else
     echo "  Środowisko: X11"
-    CHROMIUM_PLATFORM_FLAGS=""
     export DISPLAY="${DISPLAY:-:0}"
-
-    # Wyłącz screensaver i power management (tylko X11)
     xset s off 2>/dev/null || true
     xset -dpms 2>/dev/null || true
     xset s noblank 2>/dev/null || true
 fi
 
-# Schowaj kursor myszy (jeśli unclutter dostępny)
+# Schowaj kursor myszy
 if command -v unclutter &>/dev/null; then
     killall unclutter 2>/dev/null || true
     unclutter -idle 0.5 -root &>/dev/null &
@@ -85,14 +88,18 @@ fi
 
 echo "▶ Uruchamianie $CHROMIUM w trybie kiosku..."
 
-# Wyczyść flagi awaryjnego zamknięcia
-CHROMIUM_PREFS="$HOME/.config/chromium/Default/Preferences"
-if [ -f "$CHROMIUM_PREFS" ]; then
-    sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' "$CHROMIUM_PREFS" 2>/dev/null || true
-    sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$CHROMIUM_PREFS" 2>/dev/null || true
+# Dedykowany profil kiosku — gwarantuje nową, osobną instancję
+mkdir -p "$KIOSK_PROFILE/Default"
+
+# Wyczyść flagi awaryjnego zamknięcia w profilu kiosku
+KIOSK_PREFS="$KIOSK_PROFILE/Default/Preferences"
+if [ -f "$KIOSK_PREFS" ]; then
+    sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' "$KIOSK_PREFS" 2>/dev/null || true
+    sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$KIOSK_PREFS" 2>/dev/null || true
 fi
 
 $CHROMIUM \
+    --user-data-dir="$KIOSK_PROFILE" \
     --noerrdialogs \
     --disable-infobars \
     --disable-session-crashed-bubble \
@@ -101,6 +108,7 @@ $CHROMIUM \
     --disable-software-rasterizer \
     --disable-background-networking \
     --disable-sync \
+    --disable-extensions \
     --kiosk \
     --incognito \
     --disable-translate \
