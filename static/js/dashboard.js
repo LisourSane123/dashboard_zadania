@@ -139,7 +139,6 @@
 
         const filtered = getFilteredTasks();
         const pending = filtered.filter(t => !t.completed_today);
-        const completed = filtered.filter(t => t.completed_today);
         const allPending = tasks.filter(t => !t.completed_today);
 
         if (tasks.length === 0) {
@@ -150,25 +149,24 @@
 
         noTasks.classList.add("hidden");
 
-        if (filtered.length === 0) {
-            allDone.classList.add("hidden");
-            const emptyEl = document.createElement("div");
-            emptyEl.className = "all-done";
-            emptyEl.innerHTML = `
-                <div class="all-done-icon">${currentFilter === "one-time" ? "📌" : "🔄"}</div>
-                <div class="all-done-text">Brak zadań w tej kategorii</div>
-            `;
-            tasksList.appendChild(emptyEl);
+        if (pending.length === 0) {
+            allDone.classList.remove("hidden");
+            if (filtered.length === 0 && tasks.length > 0) {
+                const emptyEl = document.createElement("div");
+                emptyEl.className = "all-done";
+                emptyEl.innerHTML = `
+                    <div class="all-done-icon">${currentFilter === "one-time" ? "📌" : "🔄"}</div>
+                    <div class="all-done-text">Brak zadań w tej kategorii</div>
+                `;
+                tasksList.appendChild(emptyEl);
+                allDone.classList.add("hidden");
+            }
             return;
         }
 
-        if (allPending.length === 0) {
-            allDone.classList.remove("hidden");
-        } else {
-            allDone.classList.add("hidden");
-        }
+        allDone.classList.add("hidden");
 
-        [...pending, ...completed].forEach(task => {
+        pending.forEach(task => {
             const el = createTaskElement(task);
             tasksList.appendChild(el);
         });
@@ -186,12 +184,6 @@
         handle.className = "drag-handle";
         handle.textContent = "⠿";
         el.appendChild(handle);
-
-        // Swipe background
-        const swipeBg = document.createElement("div");
-        swipeBg.className = "swipe-bg complete";
-        swipeBg.textContent = "✓ Wykonane";
-        el.appendChild(swipeBg);
 
         // Content
         const title = document.createElement("div");
@@ -226,9 +218,6 @@
 
             // Attach swipe + drag handling
             attachSwipeAndDrag(el, task);
-        } else {
-            // Completed tasks — tap to toggle description
-            el.addEventListener("click", () => el.classList.toggle("expanded"));
         }
 
         return el;
