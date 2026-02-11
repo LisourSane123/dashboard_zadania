@@ -202,8 +202,14 @@
         const badge = document.createElement("span");
         badge.className = "task-badge " + (task.is_recurring ? "recurring" : "one-time");
         if (task.is_recurring) {
-            const labels = { days: "dni", weeks: "tyg.", months: "mies." };
-            badge.textContent = `🔄 Co ${task.recurrence_value} ${labels[task.recurrence_type] || task.recurrence_type}`;
+            if (task.recurrence_type === "weekdays" && task.recurrence_days) {
+                const dayLabels = { mon: "Pn", tue: "Wt", wed: "Śr", thu: "Cz", fri: "Pt", sat: "Sb", sun: "Nd" };
+                const days = task.recurrence_days.split(",").map(d => dayLabels[d.trim()] || d).join(", ");
+                badge.textContent = `🔄 ${days}`;
+            } else {
+                const labels = { days: "dni", weeks: "tyg.", months: "mies." };
+                badge.textContent = `🔄 Co ${task.recurrence_value} ${labels[task.recurrence_type] || task.recurrence_type}`;
+            }
         } else {
             badge.textContent = "📌 Jednorazowe";
         }

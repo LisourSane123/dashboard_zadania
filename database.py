@@ -4,6 +4,9 @@ from datetime import datetime, date, timedelta
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zadania.db")
 
+# Monday=0 .. Sunday=6  (Python weekday convention)
+WEEKDAY_NAMES = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -11,6 +14,28 @@ def get_db():
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
+
+
+def _migrate(conn):
+    """Run safe ALTER TABLE migrations for new columns."""
+    migrations = [
+        ("sort_order", "ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"),
+        ("recurrence_days", "ALTER TABLE tasks ADD COLUMN recurrence_days TEXT DEFAULT NULL"),
+        ("start_date", "ALTER TABLE tasks ADD COLUMN start_date TEXT DEFAULT NULL"),
+    ]
+    for col, sql in migrations:
+        try:
+            conn.execute(sql)
+            conn.commit()
+        except Exception:
+            pass  # column already exists
+
+    # Back-fill sort_order if all zeros
+    rows = conn.execute("SELECT id, sort_order FROM tasks ORDER BY id").fetchall()
+    if rows and all(r["sort_order"] == 0 for r in rows) and len(rows) > 1:
+        for idx, row in enumerate(rows):
+            conn.execute("UPDATE tasks SET sort_order = ? WHERE id = ?", (idx, row["id"]))
+        conn.commit()
 
 
 def init_db():
@@ -23,7 +48,9 @@ def init_db():
             is_recurring INTEGER NOT NULL DEFAULT 0,
             recurrence_type TEXT DEFAULT NULL,
             recurrence_value INTEGER DEFAULT NULL,
+            recurrence_days TEXT DEFAULT NULL,
             sort_order INTEGER NOT NULL DEFAULT 0,
+            start_date TEXT DEFAULT NULL,
             created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
             active INTEGER NOT NULL DEFAULT 1
         );
@@ -35,35 +62,31 @@ def init_db():
             FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );
     """)
-    # Migration: add sort_order column if missing (existing databases)
-    try:
-        conn.execute("ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
-        # Assign initial sort_order based on existing id order
-        rows = conn.execute("SELECT id FROM tasks ORDER BY id").fetchall()
-        for idx, row in enumerate(rows):
-            conn.execute("UPDATE tasks SET sort_order = ? WHERE id = ?", (idx, row["id"]))
-        conn.commit()
-    except Exception:
-        pass  # Column already exists
+    _migrate(conn)
     conn.commit()
     conn.close()
 
 
 # --- Task CRUD ---
 
-def add_task(title, description="", is_recurring=False, recurrence_type=None, recurrence_value=None, sort_order=None):
+def add_task(title, description="", is_recurring=False, recurrence_type=None,
+             recurrence_value=None, recurrence_days=None, start_date=None, sort_order=None):
     """Add a new task.
-    recurrence_type: 'days', 'weeks', 'months'
-    recurrence_value: integer (e.g., every 2 days)
+    recurrence_type: 'days', 'weeks', 'months', 'weekdays'
+    recurrence_value: integer (e.g., every 2 days) — ignored when type='weekdays'
+    recurrence_days: comma-separated weekday codes e.g. 'mon,wed,fri'
+    start_date: 'YYYY-MM-DD' — task won't appear before this date
     """
     conn = get_db()
     if sort_order is None:
         row = conn.execute("SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM tasks").fetchone()
         sort_order = row["next_order"]
     cur = conn.execute(
-        """INSERT INTO tasks (title, description, is_recurring, recurrence_type, recurrence_value, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (title, description, int(is_recurring), recurrence_type, recurrence_value, sort_order)
+        """INSERT INTO tasks (title, description, is_recurring, recurrence_type,
+           recurrence_value, recurrence_days, start_date, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (title, description, int(is_recurring), recurrence_type,
+         recurrence_value, recurrence_days, start_date, sort_order)
     )
     task_id = cur.lastrowid
     conn.commit()
@@ -71,7 +94,8 @@ def add_task(title, description="", is_recurring=False, recurrence_type=None, re
     return task_id
 
 
-def update_task(task_id, title=None, description=None, recurrence_type=None, recurrence_value=None, sort_order=None):
+def update_task(task_id, title=None, description=None, recurrence_type=None,
+                recurrence_value=None, recurrence_days=None, start_date=None, sort_order=None):
     conn = get_db()
     fields = []
     values = []
@@ -87,6 +111,12 @@ def update_task(task_id, title=None, description=None, recurrence_type=None, rec
     if recurrence_value is not None:
         fields.append("recurrence_value = ?")
         values.append(int(recurrence_value))
+    if recurrence_days is not None:
+        fields.append("recurrence_days = ?")
+        values.append(recurrence_days if recurrence_days else None)
+    if start_date is not None:
+        fields.append("start_date = ?")
+        values.append(start_date if start_date else None)
     if sort_order is not None:
         fields.append("sort_order = ?")
         values.append(int(sort_order))
@@ -126,6 +156,24 @@ def reorder_tasks(task_ids):
     """Set sort_order for tasks based on the order of IDs provided."""
     conn = get_db()
     for idx, tid in enumerate(task_ids):
+        conn.execute("UPDATE tasks SET sort_order = ? WHERE id = ?", (idx, tid))
+    conn.commit()
+    conn.close()
+
+
+def set_task_position(task_id, new_position):
+    """Move a task to a specific position (1-based). Shifts other tasks accordingly."""
+    conn = get_db()
+    pos = max(0, new_position - 1)  # convert to 0-based
+    rows = conn.execute("SELECT id FROM tasks WHERE active = 1 ORDER BY sort_order, id").fetchall()
+    ids = [r["id"] for r in rows]
+    if task_id not in ids:
+        conn.close()
+        return
+    ids.remove(task_id)
+    pos = min(pos, len(ids))
+    ids.insert(pos, task_id)
+    for idx, tid in enumerate(ids):
         conn.execute("UPDATE tasks SET sort_order = ? WHERE id = ?", (idx, tid))
     conn.commit()
     conn.close()
@@ -182,26 +230,66 @@ def get_completion_history(task_id, limit=50):
 
 # --- Dashboard logic ---
 
+def _is_today_weekday_match(recurrence_days):
+    """Check if today's weekday is in the comma-separated list (mon,tue,wed,thu,fri,sat,sun)."""
+    if not recurrence_days:
+        return False
+    today_code = WEEKDAY_NAMES[datetime.now().weekday()]
+    days = [d.strip().lower() for d in recurrence_days.split(",")]
+    return today_code in days
+
+
+def _was_completed_today(task_id):
+    """Check if task was already completed today."""
+    conn = get_db()
+    today_str = date.today().isoformat()
+    row = conn.execute(
+        "SELECT id FROM completions WHERE task_id = ? AND completed_at >= ? LIMIT 1",
+        (task_id, today_str)
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
 def get_tasks_for_today():
     """Get tasks that should be displayed today on the dashboard."""
     all_tasks = get_all_tasks()
     today_tasks = []
     now = datetime.now()
+    today = date.today()
 
     for task in all_tasks:
+        # ── Check start_date: don't show task before its start date ──
+        if task.get("start_date"):
+            try:
+                start = date.fromisoformat(task["start_date"])
+                if today < start:
+                    continue
+            except ValueError:
+                pass
+
         if not task["is_recurring"]:
-            # One-time task - always show if active
+            # One-time task — show if active
             today_tasks.append({**task, "completed_today": False})
             continue
 
-        # Recurring task - check if already completed within current cycle
+        # ── Recurring: weekdays mode (e.g. every Tuesday) ──
+        rec_type = task["recurrence_type"]
+        if rec_type == "weekdays":
+            if not _is_today_weekday_match(task.get("recurrence_days")):
+                continue  # not scheduled for today
+            completed = _was_completed_today(task["id"])
+            if not completed:
+                today_tasks.append({**task, "completed_today": False})
+            # if completed today — hide it (already done)
+            continue
+
+        # ── Recurring: interval mode (days/weeks/months) ──
         last = get_last_completion(task["id"])
         if last is None:
-            # Never completed - show it
             today_tasks.append({**task, "completed_today": False})
             continue
 
-        rec_type = task["recurrence_type"]
         rec_val = task["recurrence_value"] or 1
 
         if rec_type == "days":
@@ -219,7 +307,6 @@ def get_tasks_for_today():
 
         if now >= next_due:
             today_tasks.append({**task, "completed_today": False})
-        else:
-            today_tasks.append({**task, "completed_today": True})
+        # else: not due yet — hide
 
     return today_tasks

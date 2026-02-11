@@ -26,24 +26,40 @@
                     <input type="text" id="description" placeholder="np. Wszystkie doniczki na parapecie">
                 </div>
                 <div class="form-group">
+                    <label for="start-date">Data rozpoczęcia (opcjonalnie)</label>
+                    <input type="date" id="start-date">
+                    <span class="field-hint">Zadanie pojawi się dopiero w tym dniu</span>
+                </div>
+                <div class="form-group">
                     <label class="checkbox-label">
                         <input type="checkbox" id="is-recurring">
                         Zadanie cykliczne
                     </label>
                 </div>
                 <div id="recurrence-fields" class="recurrence-fields hidden">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="recurrence-value">Co ile</label>
-                            <input type="number" id="recurrence-value" min="1" value="1">
-                        </div>
-                        <div class="form-group">
-                            <label for="recurrence-type">Jednostka</label>
-                            <select id="recurrence-type">
-                                <option value="days">Dni</option>
-                                <option value="weeks">Tygodni</option>
-                                <option value="months">Miesięcy</option>
-                            </select>
+                    <div class="form-group">
+                        <label for="recurrence-type">Typ cyklu</label>
+                        <select id="recurrence-type">
+                            <option value="days">Co X dni</option>
+                            <option value="weeks">Co X tygodni</option>
+                            <option value="months">Co X miesięcy</option>
+                            <option value="weekdays">Wybrane dni tygodnia</option>
+                        </select>
+                    </div>
+                    <div id="interval-fields" class="form-group">
+                        <label for="recurrence-value">Co ile</label>
+                        <input type="number" id="recurrence-value" min="1" value="1">
+                    </div>
+                    <div id="weekday-fields" class="weekday-picker hidden">
+                        <label>Dni tygodnia</label>
+                        <div class="weekday-buttons">
+                            <button type="button" class="weekday-btn" data-day="mon">Pn</button>
+                            <button type="button" class="weekday-btn" data-day="tue">Wt</button>
+                            <button type="button" class="weekday-btn" data-day="wed">Śr</button>
+                            <button type="button" class="weekday-btn" data-day="thu">Cz</button>
+                            <button type="button" class="weekday-btn" data-day="fri">Pt</button>
+                            <button type="button" class="weekday-btn" data-day="sat">Sb</button>
+                            <button type="button" class="weekday-btn" data-day="sun">Nd</button>
                         </div>
                     </div>
                 </div>
@@ -59,7 +75,7 @@
                 <button class="tab" data-filter="recurring">Cykliczne</button>
                 <button class="tab" data-filter="one-time">Jednorazowe</button>
             </div>
-            <p class="order-hint">⬆⬇ Użyj strzałek aby ustawić priorytet (kolejność wyświetlania)</p>
+            <p class="order-hint">⬆⬇ Użyj strzałek lub kliknij numer pozycji aby zmienić kolejność</p>
             <div id="tasks-list" class="admin-tasks-list">
                 <div class="loading">Ładowanie...</div>
             </div>
@@ -82,19 +98,35 @@
                         <label for="edit-description">Opis</label>
                         <input type="text" id="edit-description">
                     </div>
+                    <div class="form-group">
+                        <label for="edit-start-date">Data rozpoczęcia</label>
+                        <input type="date" id="edit-start-date">
+                        <span class="field-hint">Zostaw puste = od zaraz</span>
+                    </div>
                     <div id="edit-recurrence-fields">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="edit-recurrence-value">Co ile</label>
-                                <input type="number" id="edit-recurrence-value" min="1" value="1">
-                            </div>
-                            <div class="form-group">
-                                <label for="edit-recurrence-type">Jednostka</label>
-                                <select id="edit-recurrence-type">
-                                    <option value="days">Dni</option>
-                                    <option value="weeks">Tygodni</option>
-                                    <option value="months">Miesięcy</option>
-                                </select>
+                        <div class="form-group">
+                            <label for="edit-recurrence-type">Typ cyklu</label>
+                            <select id="edit-recurrence-type">
+                                <option value="days">Co X dni</option>
+                                <option value="weeks">Co X tygodni</option>
+                                <option value="months">Co X miesięcy</option>
+                                <option value="weekdays">Wybrane dni tygodnia</option>
+                            </select>
+                        </div>
+                        <div id="edit-interval-fields" class="form-group">
+                            <label for="edit-recurrence-value">Co ile</label>
+                            <input type="number" id="edit-recurrence-value" min="1" value="1">
+                        </div>
+                        <div id="edit-weekday-fields" class="weekday-picker hidden">
+                            <label>Dni tygodnia</label>
+                            <div class="weekday-buttons">
+                                <button type="button" class="weekday-btn" data-day="mon">Pn</button>
+                                <button type="button" class="weekday-btn" data-day="tue">Wt</button>
+                                <button type="button" class="weekday-btn" data-day="wed">Śr</button>
+                                <button type="button" class="weekday-btn" data-day="thu">Cz</button>
+                                <button type="button" class="weekday-btn" data-day="fri">Pt</button>
+                                <button type="button" class="weekday-btn" data-day="sat">Sb</button>
+                                <button type="button" class="weekday-btn" data-day="sun">Nd</button>
                             </div>
                         </div>
                     </div>

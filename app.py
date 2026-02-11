@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 import os
 from database import init_db, add_task, update_task, delete_task, get_all_tasks, \
     get_recurring_tasks, get_task, complete_task, get_tasks_for_today, get_completion_history, \
-    reorder_tasks
+    reorder_tasks, set_task_position
 
 app = Flask(__name__)
 
@@ -70,13 +70,20 @@ def api_add_task():
 
     description = data.get("description", "").strip()
     is_recurring = bool(data.get("is_recurring", False))
-    recurrence_type = data.get("recurrence_type")  # days / weeks / months
+    recurrence_type = data.get("recurrence_type")  # days / weeks / months / weekdays
     recurrence_value = data.get("recurrence_value")  # int
+    recurrence_days = data.get("recurrence_days")  # e.g. "mon,wed,fri"
+    start_date = data.get("start_date")  # e.g. "2026-02-16"
 
-    if is_recurring and (not recurrence_type or not recurrence_value):
-        return jsonify({"status": "error", "message": "Recurrence details required"}), 400
+    if is_recurring:
+        if recurrence_type == "weekdays":
+            if not recurrence_days:
+                return jsonify({"status": "error", "message": "Wybierz dni tygodnia"}), 400
+        elif not recurrence_type or not recurrence_value:
+            return jsonify({"status": "error", "message": "Recurrence details required"}), 400
 
-    task_id = add_task(title, description, is_recurring, recurrence_type, recurrence_value)
+    task_id = add_task(title, description, is_recurring, recurrence_type,
+                       recurrence_value, recurrence_days, start_date)
     return jsonify({"status": "ok", "id": task_id}), 201
 
 
@@ -87,8 +94,11 @@ def api_update_task(task_id):
     description = data.get("description")
     recurrence_type = data.get("recurrence_type")
     recurrence_value = data.get("recurrence_value")
+    recurrence_days = data.get("recurrence_days")
+    start_date = data.get("start_date")
     sort_order = data.get("sort_order")
-    update_task(task_id, title, description, recurrence_type, recurrence_value, sort_order)
+    update_task(task_id, title, description, recurrence_type, recurrence_value,
+               recurrence_days, start_date, sort_order)
     return jsonify({"status": "ok"})
 
 
@@ -105,6 +115,16 @@ def api_reorder_tasks():
     if not task_ids:
         return jsonify({"status": "error", "message": "No task IDs provided"}), 400
     reorder_tasks(task_ids)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/tasks/<int:task_id>/position", methods=["POST"])
+def api_set_position(task_id):
+    data = request.get_json(force=True)
+    position = data.get("position")
+    if position is None or not isinstance(position, int) or position < 1:
+        return jsonify({"status": "error", "message": "Podaj pozycję (liczba >= 1)"}), 400
+    set_task_position(task_id, position)
     return jsonify({"status": "ok"})
 
 
