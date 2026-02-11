@@ -30,8 +30,22 @@ if ! command -v chromium-browser &>/dev/null && ! command -v chromium &>/dev/nul
     echo "⚠  Nie udało się zainstalować Chromium. Zainstaluj ręcznie."
 fi
 
-# Opcjonalne narzędzia (mogą nie być dostępne na Wayland)
+# Opcjonalne narzędzia
 sudo apt-get install -y -qq unclutter xdotool 2>/dev/null || true
+
+# uhubctl – sterowanie zasilaniem portów USB (do trybu nocnego)
+if ! command -v uhubctl &>/dev/null; then
+    sudo apt-get install -y -qq uhubctl 2>/dev/null || {
+        echo "  Instaluję uhubctl ze źródeł..."
+        sudo apt-get install -y -qq libusb-1.0-0-dev git 2>/dev/null || true
+        if command -v git &>/dev/null; then
+            UHUB_TMP=$(mktemp -d)
+            git clone https://github.com/mvp/uhubctl "$UHUB_TMP" 2>/dev/null
+            (cd "$UHUB_TMP" && make && sudo make install) 2>/dev/null || true
+            rm -rf "$UHUB_TMP"
+        fi
+    }
+fi
 
 # ─── 2. Środowisko wirtualne Python ───
 echo "▶ [2/5] Tworzenie środowiska wirtualnego Python (venv)..."
@@ -63,6 +77,15 @@ sudo udevadm control --reload-rules 2>/dev/null || true
 sudo chmod a+rw /sys/class/backlight/*/brightness 2>/dev/null || true
 sudo chmod a+rw /sys/class/backlight/*/bl_power 2>/dev/null || true
 echo "  Backlight dostępny bez sudo."
+
+# uhubctl wymaga dostępu do USB – reguła udev
+if command -v uhubctl &>/dev/null; then
+    sudo tee /etc/udev/rules.d/52-usb.rules > /dev/null << 'UDEV2'
+SUBSYSTEM=="usb", ATTR{idVendor}=="1d6b", MODE="0666"
+UDEV2
+    sudo udevadm control --reload-rules 2>/dev/null || true
+    echo "  uhubctl dostępny bez sudo."
+fi
 
 # ─── 6. Konfiguracja autouruchamiania ───
 echo "▶ [6/6] Konfiguracja autouruchamiania..."

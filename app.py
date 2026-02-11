@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
 import os
 import glob
+import subprocess
+import time
 from database import init_db, add_task, update_task, delete_task, get_all_tasks, \
     get_recurring_tasks, get_task, complete_task, get_tasks_for_today, get_completion_history, \
     reorder_tasks, set_task_position
@@ -18,38 +20,119 @@ def favicon():
 
 
 # ──────────────────────────────────────────────
-#  Backlight control (RPi display)
+#  Display control (RPi backlight + screen power)
 # ──────────────────────────────────────────────
 
-def _set_backlight(value):
-    """Write brightness value to RPi backlight sysfs."""
-    paths = glob.glob("/sys/class/backlight/*/brightness")
-    if not paths:
-        return jsonify({"ok": False, "error": "no backlight found"})
+def _display_power(on):
+    """Turn RPi display on/off using every available method."""
+    results = {}
+    env = {**os.environ, "DISPLAY": os.environ.get("DISPLAY", ":0")}
+
+    # 1) sysfs brightness
+    bri_paths = glob.glob("/sys/class/backlight/*/brightness")
+    if bri_paths:
+        try:
+            if on:
+                max_paths = glob.glob("/sys/class/backlight/*/max_brightness")
+                val = 255
+                if max_paths:
+                    with open(max_paths[0]) as f:
+                        val = int(f.read().strip())
+            else:
+                val = 0
+            with open(bri_paths[0], "w") as f:
+                f.write(str(val))
+            results["brightness"] = True
+        except OSError as e:
+            results["brightness"] = str(e)
+
+    # 2) sysfs bl_power (0 = on, 1 = off on most panels)
+    bl_paths = glob.glob("/sys/class/backlight/*/bl_power")
+    if bl_paths:
+        try:
+            with open(bl_paths[0], "w") as f:
+                f.write("0" if on else "1")
+            results["bl_power"] = True
+        except OSError as e:
+            results["bl_power"] = str(e)
+
+    # 3) vcgencmd display_power (works for DSI & HDMI on RPi)
     try:
-        with open(paths[0], "w") as f:
-            f.write(str(value))
-        return jsonify({"ok": True})
-    except OSError as e:
-        return jsonify({"ok": False, "error": str(e)})
+        subprocess.run(
+            ["vcgencmd", "display_power", "1" if on else "0"],
+            capture_output=True, timeout=5, env=env,
+        )
+        results["vcgencmd"] = True
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    # 4) xset dpms (X11)
+    try:
+        if on:
+            subprocess.run(["xset", "dpms", "force", "on"],
+                           capture_output=True, timeout=5, env=env)
+        else:
+            subprocess.run(["xset", "dpms", "force", "off"],
+                           capture_output=True, timeout=5, env=env)
+        results["xset"] = True
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    return results
 
 
 @app.route("/api/backlight/off", methods=["POST"])
 def backlight_off():
-    return _set_backlight(0)
+    r = _display_power(False)
+    return jsonify({"ok": True, "methods": r})
 
 
 @app.route("/api/backlight/on", methods=["POST"])
 def backlight_on():
-    max_paths = glob.glob("/sys/class/backlight/*/max_brightness")
-    max_val = 255
-    if max_paths:
+    r = _display_power(True)
+    return jsonify({"ok": True, "methods": r})
+
+
+@app.route("/api/screen/off", methods=["POST"])
+def screen_off():
+    """Night mode – turn off display AND cut USB power to screen."""
+    r = _display_power(False)
+    # Also try uhubctl to cut USB power entirely
+    try:
+        subprocess.run(["uhubctl", "-a", "off", "-p", "2"],
+                       capture_output=True, timeout=10)
+        r["uhubctl"] = True
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        # If uhubctl not available, try generic USB power off
         try:
-            with open(max_paths[0]) as f:
-                max_val = int(f.read().strip())
-        except (OSError, ValueError):
-            pass
-    return _set_backlight(max_val)
+            subprocess.run(["uhubctl", "-a", "off"],
+                           capture_output=True, timeout=10)
+            r["uhubctl"] = True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            r["uhubctl"] = False
+    return jsonify({"ok": True, "methods": r})
+
+
+@app.route("/api/screen/on", methods=["POST"])
+def screen_on():
+    """Restore USB power + display."""
+    results = {}
+    # Restore USB power first (so screen has power before we set backlight)
+    try:
+        subprocess.run(["uhubctl", "-a", "on", "-p", "2"],
+                       capture_output=True, timeout=10)
+        results["uhubctl"] = True
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        try:
+            subprocess.run(["uhubctl", "-a", "on"],
+                           capture_output=True, timeout=10)
+            results["uhubctl"] = True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            results["uhubctl"] = False
+    time.sleep(2)  # Give screen time to power up
+    r = _display_power(True)
+    results.update(r)
+    return jsonify({"ok": True, "methods": results})
 
 
 # ──────────────────────────────────────────────

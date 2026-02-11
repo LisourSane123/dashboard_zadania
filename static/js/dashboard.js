@@ -7,8 +7,8 @@
     "use strict";
 
     // ─── Config ───
-    const SLEEP_TIMEOUT_MS = 15000;      // 15 seconds
-    const NIGHT_START_HOUR = 0;           // 00:00
+    const SLEEP_TIMEOUT_MS = 30000;      // 30 seconds
+    const NIGHT_START_HOUR = 23;          // 23:00
     const NIGHT_END_HOUR = 5;             // 05:00
     const REFRESH_INTERVAL_MS = 30000;    // Refresh tasks every 30s
     const SWIPE_THRESHOLD = 100;          // px needed to count as swipe
@@ -46,13 +46,34 @@
     }
 
     // ════════════════════════════════════════════
-    //  Night mode (00:00 – 05:00)
+    //  Night mode (23:00 – 05:00)
     // ════════════════════════════════════════════
+
+    let isNightActive = false;
 
     function checkNightMode() {
         const hour = new Date().getHours();
-        const isNight = hour >= NIGHT_START_HOUR && hour < NIGHT_END_HOUR;
-        nightOverlay.classList.toggle("hidden", !isNight);
+        // Night spans midnight: 23 <= hour OR hour < 5
+        const isNight = hour >= NIGHT_START_HOUR || hour < NIGHT_END_HOUR;
+
+        if (isNight && !isNightActive) {
+            // Entering night mode → cut screen power entirely
+            isNightActive = true;
+            nightOverlay.classList.remove("hidden");
+            if (sleepTimer) clearTimeout(sleepTimer);
+            fetch("/api/screen/off", { method: "POST" }).catch(() => {});
+        } else if (!isNight && isNightActive) {
+            // Leaving night mode → restore screen power
+            isNightActive = false;
+            nightOverlay.classList.add("hidden");
+            fetch("/api/screen/on", { method: "POST" }).catch(() => {});
+            // Also make sure sleep overlay is gone and timer resets
+            if (isSleeping) {
+                isSleeping = false;
+                sleepOverlay.classList.add("hidden");
+            }
+            resetSleepTimer();
+        }
     }
 
     // ════════════════════════════════════════════
@@ -65,6 +86,7 @@
     }
 
     function goToSleep() {
+        if (isNightActive) return; // night mode handles its own power
         isSleeping = true;
         sleepOverlay.classList.remove("hidden");
         // Turn off RPi backlight (screen goes truly dark)
