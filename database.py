@@ -22,6 +22,7 @@ def _migrate(conn):
         ("sort_order", "ALTER TABLE tasks ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0"),
         ("recurrence_days", "ALTER TABLE tasks ADD COLUMN recurrence_days TEXT DEFAULT NULL"),
         ("start_date", "ALTER TABLE tasks ADD COLUMN start_date TEXT DEFAULT NULL"),
+        ("end_date", "ALTER TABLE tasks ADD COLUMN end_date TEXT DEFAULT NULL"),
     ]
     for col, sql in migrations:
         try:
@@ -51,6 +52,7 @@ def init_db():
             recurrence_days TEXT DEFAULT NULL,
             sort_order INTEGER NOT NULL DEFAULT 0,
             start_date TEXT DEFAULT NULL,
+            end_date TEXT DEFAULT NULL,
             created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
             active INTEGER NOT NULL DEFAULT 1
         );
@@ -70,12 +72,13 @@ def init_db():
 # --- Task CRUD ---
 
 def add_task(title, description="", is_recurring=False, recurrence_type=None,
-             recurrence_value=None, recurrence_days=None, start_date=None, sort_order=None):
+             recurrence_value=None, recurrence_days=None, start_date=None, end_date=None, sort_order=None):
     """Add a new task.
     recurrence_type: 'days', 'weeks', 'months', 'weekdays'
     recurrence_value: integer (e.g., every 2 days) — ignored when type='weekdays'
     recurrence_days: comma-separated weekday codes e.g. 'mon,wed,fri'
     start_date: 'YYYY-MM-DD' — task won't appear before this date
+    end_date: 'YYYY-MM-DD' — task deactivated after this date
     """
     conn = get_db()
     if sort_order is None:
@@ -83,10 +86,10 @@ def add_task(title, description="", is_recurring=False, recurrence_type=None,
         sort_order = row["next_order"]
     cur = conn.execute(
         """INSERT INTO tasks (title, description, is_recurring, recurrence_type,
-           recurrence_value, recurrence_days, start_date, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+           recurrence_value, recurrence_days, start_date, end_date, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (title, description, int(is_recurring), recurrence_type,
-         recurrence_value, recurrence_days, start_date, sort_order)
+         recurrence_value, recurrence_days, start_date, end_date, sort_order)
     )
     task_id = cur.lastrowid
     conn.commit()
@@ -95,7 +98,7 @@ def add_task(title, description="", is_recurring=False, recurrence_type=None,
 
 
 def update_task(task_id, title=None, description=None, recurrence_type=None,
-                recurrence_value=None, recurrence_days=None, start_date=None, sort_order=None):
+                recurrence_value=None, recurrence_days=None, start_date=None, end_date=None, sort_order=None):
     conn = get_db()
     fields = []
     values = []
@@ -117,6 +120,9 @@ def update_task(task_id, title=None, description=None, recurrence_type=None,
     if start_date is not None:
         fields.append("start_date = ?")
         values.append(start_date if start_date else None)
+    if end_date is not None:
+        fields.append("end_date = ?")
+        values.append(end_date if end_date else None)
     if sort_order is not None:
         fields.append("sort_order = ?")
         values.append(int(sort_order))
@@ -264,6 +270,15 @@ def get_tasks_for_today():
             try:
                 start = date.fromisoformat(task["start_date"])
                 if today < start:
+                    continue
+            except ValueError:
+                pass
+
+        # ── Check end_date: don't show task after its end date ──
+        if task.get("end_date"):
+            try:
+                end = date.fromisoformat(task["end_date"])
+                if today > end:
                     continue
             except ValueError:
                 pass

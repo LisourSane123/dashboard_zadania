@@ -31,6 +31,11 @@
                     <span class="field-hint">Zadanie pojawi się dopiero w tym dniu</span>
                 </div>
                 <div class="form-group">
+                    <label for="end-date">Data zakończenia (opcjonalnie)</label>
+                    <input type="date" id="end-date">
+                    <span class="field-hint">Po tej dacie zadanie zniknie z dashboardu</span>
+                </div>
+                <div class="form-group">
                     <label class="checkbox-label">
                         <input type="checkbox" id="is-recurring">
                         Zadanie cykliczne
@@ -102,6 +107,11 @@
                         <label for="edit-start-date">Data rozpoczęcia</label>
                         <input type="date" id="edit-start-date">
                         <span class="field-hint">Zostaw puste = od zaraz</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-end-date">Data zakończenia</label>
+                        <input type="date" id="edit-end-date">
+                        <span class="field-hint">Zostaw puste = bez limitu</span>
                     </div>
                     <div id="edit-recurrence-fields">
                         <div class="form-group">

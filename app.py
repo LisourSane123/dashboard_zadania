@@ -74,6 +74,7 @@ def api_add_task():
     recurrence_value = data.get("recurrence_value")  # int
     recurrence_days = data.get("recurrence_days")  # e.g. "mon,wed,fri"
     start_date = data.get("start_date")  # e.g. "2026-02-16"
+    end_date = data.get("end_date")  # e.g. "2026-03-01"
 
     if is_recurring:
         if recurrence_type == "weekdays":
@@ -83,7 +84,7 @@ def api_add_task():
             return jsonify({"status": "error", "message": "Recurrence details required"}), 400
 
     task_id = add_task(title, description, is_recurring, recurrence_type,
-                       recurrence_value, recurrence_days, start_date)
+                       recurrence_value, recurrence_days, start_date, end_date)
     return jsonify({"status": "ok", "id": task_id}), 201
 
 
@@ -96,9 +97,10 @@ def api_update_task(task_id):
     recurrence_value = data.get("recurrence_value")
     recurrence_days = data.get("recurrence_days")
     start_date = data.get("start_date")
+    end_date = data.get("end_date")
     sort_order = data.get("sort_order")
     update_task(task_id, title, description, recurrence_type, recurrence_value,
-               recurrence_days, start_date, sort_order)
+               recurrence_days, start_date, end_date, sort_order)
     return jsonify({"status": "ok"})
 
 

@@ -85,6 +85,7 @@
         const title = document.getElementById("title").value.trim();
         const description = document.getElementById("description").value.trim();
         const startDate = document.getElementById("start-date").value || null;
+        const endDate = document.getElementById("end-date").value || null;
         const recurring = isRecurring.checked;
         const recType = recurrenceType.value;
         const recurrenceValue = parseInt(document.getElementById("recurrence-value").value) || 1;
@@ -96,6 +97,7 @@
             description,
             is_recurring: recurring,
             start_date: startDate,
+            end_date: endDate,
         };
 
         if (recurring) {
@@ -172,10 +174,13 @@
             const isFirst = posInAll === 0;
             const isLast = posInAll === allTasks.length - 1;
 
-            // Start date info
             let startInfo = "";
             if (task.start_date) {
                 startInfo = ` · <span class="badge schedule">📅 od ${task.start_date}</span>`;
+            }
+            let endInfo = "";
+            if (task.end_date) {
+                endInfo = ` · <span class="badge schedule">🏁 do ${task.end_date}</span>`;
             }
 
             el.innerHTML = `
@@ -187,7 +192,7 @@
                 <div class="admin-task-info">
                     <div class="admin-task-title">${escHtml(task.title)}</div>
                     <div class="admin-task-meta">
-                        ${metaText}${startInfo}
+                        ${metaText}${startInfo}${endInfo}
                         ${task.description ? ' · ' + escHtml(task.description) : ''}
                     </div>
                 </div>
@@ -285,6 +290,7 @@
         document.getElementById("edit-title").value = task.title;
         document.getElementById("edit-description").value = task.description || "";
         document.getElementById("edit-start-date").value = task.start_date || "";
+        document.getElementById("edit-end-date").value = task.end_date || "";
         document.getElementById("edit-recurrence-value").value = task.recurrence_value || 1;
         document.getElementById("edit-recurrence-type").value = task.recurrence_type || "days";
 
@@ -326,6 +332,7 @@
             title: document.getElementById("edit-title").value.trim(),
             description: document.getElementById("edit-description").value.trim(),
             start_date: document.getElementById("edit-start-date").value || "",
+            end_date: document.getElementById("edit-end-date").value || "",
             recurrence_type: recType,
         };
 
