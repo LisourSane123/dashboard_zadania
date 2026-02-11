@@ -177,11 +177,6 @@ main {
     cursor: pointer;
 }
 
-.sleep-text {
-    color: #333;
-    font-size: 14px;
-}
-
 /* ─── Night overlay ─── */
 .night-overlay {
     position: fixed;

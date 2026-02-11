@@ -21,6 +21,12 @@ fi
 echo "▶ Uruchamianie serwera Flask..."
 cd "$SCRIPT_DIR"
 
+# Przy starcie systemu poczekaj na stabilizację (sieć, ekran, usługi)
+if [ "$(cat /proc/uptime | cut -d. -f1)" -lt 60 ] 2>/dev/null; then
+    echo "  System świeżo uruchomiony – czekam 10s na stabilizację..."
+    sleep 10
+fi
+
 # Zabij poprzednie instancje serwera
 pkill -f "python.*app.py" 2>/dev/null || true
 
@@ -35,12 +41,12 @@ sleep 2
 SERVER_PID=$!
 echo "  Serwer PID: $SERVER_PID"
 
-# Poczekaj aż serwer będzie gotowy
+# Poczekaj aż serwer będzie gotowy (do 60 sekund)
 echo "  Czekam na serwer..."
 SERVER_READY=0
-for i in $(seq 1 30); do
-    if curl -s -o /dev/null "http://localhost:${SERVER_PORT}/"; then
-        echo "  Serwer gotowy!"
+for i in $(seq 1 60); do
+    if curl -s -o /dev/null -w '' "http://localhost:${SERVER_PORT}/" 2>/dev/null; then
+        echo "  Serwer gotowy! (po ${i}s)"
         SERVER_READY=1
         break
     fi
@@ -48,7 +54,30 @@ for i in $(seq 1 30); do
 done
 
 if [ "$SERVER_READY" -eq 0 ]; then
-    echo "⚠  Serwer nie odpowiada po 30s. Kontynuuję mimo to..."
+    echo "⚠  Serwer nie odpowiada po 60s. Sprawdzam czy proces żyje..."
+    if ! kill -0 $SERVER_PID 2>/dev/null; then
+        echo "✖  Proces serwera nie żyje. Próbuję ponownie..."
+        "$VENV_DIR/bin/python" app.py &
+        SERVER_PID=$!
+    fi
+    # Czekaj kolejne 60s
+    for i in $(seq 1 60); do
+        if curl -s -o /dev/null -w '' "http://localhost:${SERVER_PORT}/" 2>/dev/null; then
+            echo "  Serwer gotowy! (po dodatkowych ${i}s)"
+            SERVER_READY=1
+            break
+        fi
+        sleep 1
+    done
+fi
+
+if [ "$SERVER_READY" -eq 0 ]; then
+    echo "✖  Serwer nie odpowiada po 120s. Restartuję..."
+    kill $SERVER_PID 2>/dev/null || true
+    sleep 2
+    "$VENV_DIR/bin/python" app.py &
+    SERVER_PID=$!
+    sleep 5
 fi
 
 # ─── Konfiguracja ekranu ───
@@ -126,6 +155,12 @@ $CHROMIUM \
 
 BROWSER_PID=$!
 echo "  Chromium PID: $BROWSER_PID"
+
+# Zabezpieczenie: jeśli serwer nie był od razu gotowy → odśwież po starcie
+sleep 3
+if command -v xdotool &>/dev/null; then
+    xdotool key --clearmodifiers F5 2>/dev/null || true
+fi
 
 # ─── Czekaj i sprzątaj ───
 cleanup() {

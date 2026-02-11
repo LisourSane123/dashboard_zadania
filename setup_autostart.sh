@@ -31,7 +31,7 @@ if ! command -v chromium-browser &>/dev/null && ! command -v chromium &>/dev/nul
 fi
 
 # Opcjonalne narzędzia (mogą nie być dostępne na Wayland)
-sudo apt-get install -y -qq unclutter 2>/dev/null || true
+sudo apt-get install -y -qq unclutter xdotool 2>/dev/null || true
 
 # ─── 2. Środowisko wirtualne Python ───
 echo "▶ [2/5] Tworzenie środowiska wirtualnego Python (venv)..."
@@ -49,11 +49,23 @@ echo "▶ [3/5] Instalacja pakietów Python w venv..."
 echo "  Pakiety zainstalowane."
 
 # ─── 4. Uprawnienia ───
-echo "▶ [4/5] Nadawanie uprawnień..."
+echo "▶ [4/6] Nadawanie uprawnień..."
 chmod +x "$KIOSK_SCRIPT"
 
-# ─── 5. Konfiguracja autouruchamiania ───
-echo "▶ [5/5] Konfiguracja autouruchamiania..."
+# ─── 5. Sterowanie podświetleniem ekranu ───
+echo "▶ [5/6] Konfiguracja sterowania podświetleniem..."
+# Udev rule: pozwala wyłączać/włączać backlight bez roota
+sudo tee /etc/udev/rules.d/99-backlight.rules > /dev/null << 'UDEV'
+SUBSYSTEM=="backlight", ACTION=="add", RUN+="/bin/chmod a+rw /sys%p/brightness /sys%p/bl_power"
+UDEV
+sudo udevadm control --reload-rules 2>/dev/null || true
+# Natychmiast ustaw uprawnienia (bez restartu)
+sudo chmod a+rw /sys/class/backlight/*/brightness 2>/dev/null || true
+sudo chmod a+rw /sys/class/backlight/*/bl_power 2>/dev/null || true
+echo "  Backlight dostępny bez sudo."
+
+# ─── 6. Konfiguracja autouruchamiania ───
+echo "▶ [6/6] Konfiguracja autouruchamiania..."
 
 # Metoda A: XDG autostart (.desktop) – działa na labwc, LXDE i innych DE
 mkdir -p "$HOME/.config/autostart"

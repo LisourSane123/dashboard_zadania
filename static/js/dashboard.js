@@ -67,15 +67,26 @@
     function goToSleep() {
         isSleeping = true;
         sleepOverlay.classList.remove("hidden");
+        // Turn off RPi backlight (screen goes truly dark)
+        fetch("/api/backlight/off", { method: "POST" }).catch(() => {});
     }
 
     function wakeUp() {
+        if (!isSleeping) return;
         isSleeping = false;
+        // Turn on RPi backlight first
+        fetch("/api/backlight/on", { method: "POST" }).catch(() => {});
         sleepOverlay.classList.add("hidden");
         resetSleepTimer();
     }
     // Expose to onclick
     window.wakeUp = wakeUp;
+
+    // Overlay: also wake on touch (touchscreens may not fire click)
+    sleepOverlay.addEventListener("touchstart", function (e) {
+        e.preventDefault();
+        wakeUp();
+    });
 
     // Any touch/mouse activity resets the sleep timer
     function onActivity() {
@@ -118,13 +129,22 @@
     //  Fetch & render tasks
     // ════════════════════════════════════════════
 
+    let fetchFailCount = 0;
+
     async function fetchTasks() {
         try {
             const resp = await fetch("/api/tasks/today");
             tasks = applyLocalOrder(await resp.json());
+            fetchFailCount = 0;
             renderTasks();
         } catch (e) {
-            console.error("Error fetching tasks:", e);
+            fetchFailCount++;
+            console.error("Error fetching tasks:", e, "(" + fetchFailCount + " failures)");
+            // If server is unreachable for 3+ cycles, reload the page
+            if (fetchFailCount >= 3) {
+                fetchFailCount = 0;
+                location.reload();
+            }
         }
     }
 

@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
 import os
+import glob
 from database import init_db, add_task, update_task, delete_task, get_all_tasks, \
     get_recurring_tasks, get_task, complete_task, get_tasks_for_today, get_completion_history, \
     reorder_tasks, set_task_position
@@ -14,6 +15,41 @@ def favicon():
         "favicon.ico",
         mimetype="image/x-icon",
     )
+
+
+# ──────────────────────────────────────────────
+#  Backlight control (RPi display)
+# ──────────────────────────────────────────────
+
+def _set_backlight(value):
+    """Write brightness value to RPi backlight sysfs."""
+    paths = glob.glob("/sys/class/backlight/*/brightness")
+    if not paths:
+        return jsonify({"ok": False, "error": "no backlight found"})
+    try:
+        with open(paths[0], "w") as f:
+            f.write(str(value))
+        return jsonify({"ok": True})
+    except OSError as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+
+@app.route("/api/backlight/off", methods=["POST"])
+def backlight_off():
+    return _set_backlight(0)
+
+
+@app.route("/api/backlight/on", methods=["POST"])
+def backlight_on():
+    max_paths = glob.glob("/sys/class/backlight/*/max_brightness")
+    max_val = 255
+    if max_paths:
+        try:
+            with open(max_paths[0]) as f:
+                max_val = int(f.read().strip())
+        except (OSError, ValueError):
+            pass
+    return _set_backlight(max_val)
 
 
 # ──────────────────────────────────────────────
