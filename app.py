@@ -1,9 +1,19 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
+import os
 from database import init_db, add_task, update_task, delete_task, get_all_tasks, \
     get_recurring_tasks, get_task, complete_task, get_tasks_for_today, get_completion_history, \
     reorder_tasks
 
 app = Flask(__name__)
+
+
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory(
+        os.path.join(app.root_path, "static"),
+        "favicon.ico",
+        mimetype="image/x-icon",
+    )
 
 
 # ──────────────────────────────────────────────

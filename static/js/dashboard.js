@@ -121,7 +121,7 @@
     async function fetchTasks() {
         try {
             const resp = await fetch("/api/tasks/today");
-            tasks = await resp.json();
+            tasks = applyLocalOrder(await resp.json());
             renderTasks();
         } catch (e) {
             console.error("Error fetching tasks:", e);
@@ -226,6 +226,9 @@
 
             // Attach swipe + drag handling
             attachSwipeAndDrag(el, task);
+        } else {
+            // Completed tasks — tap to toggle description
+            el.addEventListener("click", () => el.classList.toggle("expanded"));
         }
 
         return el;
@@ -314,6 +317,9 @@
                     el.style.transition = "transform 0.2s ease";
                     el.style.transform = "translateX(0)";
                 }
+            } else if (!directionDecided) {
+                // Tap — toggle description
+                el.classList.toggle("expanded");
             }
             isSwiping = false;
             directionDecided = false;
@@ -331,13 +337,12 @@
             startX = e.clientX;
             startY = e.clientY;
             currentX = startX;
-            isSwiping = true;
+            isSwiping = false;
             directionDecided = false;
             el.style.transition = "none";
 
             dragState.holdTimer = setTimeout(() => {
                 startDrag(el, e);
-                isSwiping = false;
             }, HOLD_DURATION_MS);
 
             e.preventDefault();
@@ -348,38 +353,42 @@
                 moveDrag(e);
                 return;
             }
-            if (!isSwiping) return;
             currentX = e.clientX;
             const dx = currentX - startX;
             const dy = e.clientY - startY;
 
             if (!directionDecided && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
                 directionDecided = true;
-                if (Math.abs(dx) <= Math.abs(dy)) {
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    isSwiping = true;
                     clearTimeout(dragState.holdTimer);
-                    isSwiping = false;
+                } else {
+                    clearTimeout(dragState.holdTimer);
                     return;
                 }
-                clearTimeout(dragState.holdTimer);
             }
 
-            if (dx < 0) el.style.transform = `translateX(${dx}px)`;
+            if (isSwiping && dx < 0) el.style.transform = `translateX(${dx}px)`;
         };
 
         const onMouseUp = () => {
             clearTimeout(dragState.holdTimer);
             if (dragState.active && dragState.el === el) { endDrag(); return; }
-            if (!isSwiping) return;
-            isSwiping = false;
-            const diff = currentX - startX;
-            if (diff < -SWIPE_THRESHOLD) {
-                el.style.transition = "transform 0.3s ease, opacity 0.3s ease";
-                el.classList.add("completing");
-                completeTask(task.id);
-                setTimeout(() => fetchTasks(), 350);
-            } else {
-                el.style.transition = "transform 0.2s ease";
-                el.style.transform = "translateX(0)";
+            if (isSwiping) {
+                isSwiping = false;
+                const diff = currentX - startX;
+                if (diff < -SWIPE_THRESHOLD) {
+                    el.style.transition = "transform 0.3s ease, opacity 0.3s ease";
+                    el.classList.add("completing");
+                    completeTask(task.id);
+                    setTimeout(() => fetchTasks(), 350);
+                } else {
+                    el.style.transition = "transform 0.2s ease";
+                    el.style.transform = "translateX(0)";
+                }
+            } else if (!directionDecided) {
+                // Click — toggle description
+                el.classList.toggle("expanded");
             }
         };
 
@@ -477,23 +486,42 @@
         dragState.placeholder = null;
     }
 
-    async function saveOrder() {
+    function saveOrder() {
+        // Temporary reorder — saved in localStorage, resets daily
         const orderedIds = Array.from(tasksList.querySelectorAll(".task-item"))
             .map(el => parseInt(el.dataset.taskId))
             .filter(id => !isNaN(id));
 
-        const visibleSet = new Set(orderedIds);
-        const hiddenIds = tasks.filter(t => !visibleSet.has(t.id)).map(t => t.id);
-        const allIds = [...orderedIds, ...hiddenIds];
-
+        const today = new Date().toISOString().slice(0, 10);
         try {
-            await fetch("/api/tasks/reorder", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ task_ids: allIds }),
+            localStorage.setItem("dashboard_order", JSON.stringify({
+                date: today,
+                ids: orderedIds
+            }));
+        } catch (e) {
+            console.error("Error saving temp order:", e);
+        }
+    }
+
+    function applyLocalOrder(taskList) {
+        try {
+            const raw = localStorage.getItem("dashboard_order");
+            if (!raw) return taskList;
+            const stored = JSON.parse(raw);
+            const today = new Date().toISOString().slice(0, 10);
+            if (stored.date !== today) {
+                localStorage.removeItem("dashboard_order");
+                return taskList;
+            }
+            const orderMap = new Map();
+            stored.ids.forEach((id, idx) => orderMap.set(id, idx));
+            return [...taskList].sort((a, b) => {
+                const oa = orderMap.has(a.id) ? orderMap.get(a.id) : 9999;
+                const ob = orderMap.has(b.id) ? orderMap.get(b.id) : 9999;
+                return oa - ob;
             });
         } catch (e) {
-            console.error("Error saving order:", e);
+            return taskList;
         }
     }
 

@@ -97,6 +97,10 @@ $CHROMIUM \
     --disable-infobars \
     --disable-session-crashed-bubble \
     --disable-restore-session-state \
+    --disable-gpu \
+    --disable-software-rasterizer \
+    --disable-background-networking \
+    --disable-sync \
     --kiosk \
     --incognito \
     --disable-translate \
