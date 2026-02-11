@@ -15,7 +15,7 @@ html, body {
     color: #eee;
     user-select: none;
     -webkit-user-select: none;
-    touch-action: pan-x;
+    touch-action: manipulation;
     cursor: default;
 }
 

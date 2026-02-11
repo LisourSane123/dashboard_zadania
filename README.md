@@ -50,7 +50,11 @@ chmod +x setup_autostart.sh start_kiosk.sh
 bash setup_autostart.sh
 ```
 
-Skrypt zainstaluje potrzebne pakiety, skonfiguruje autostart i nada uprawnienia.
+Skrypt automatycznie:
+- Zainstaluje zależności systemowe (Chromium, curl, itp.)
+- Utworzy środowisko wirtualne Python (venv)
+- Zainstaluje pakiety Python w venv
+- Skonfiguruje autostart (obsługuje Wayland/labwc i X11/LXDE)
 
 ### 3. Uruchom teraz (opcjonalnie)
 
@@ -94,7 +98,7 @@ Możesz:
 
 ## Wymagania
 
-- Raspberry Pi 5 z Raspberry Pi OS (Desktop)
+- Raspberry Pi 5 z Raspberry Pi OS (Desktop) — Bookworm lub nowszy
 - Ekran dotykowy 7" (oficjalny lub kompatybilny)
 - Python 3.11+
 - Chromium (preinstalowany w RPi OS)
@@ -102,6 +106,8 @@ Możesz:
 ## Uruchamianie deweloperskie (bez kiosku)
 
 ```bash
+python3 -m venv venv
+source venv/bin/activate
 pip install flask
 python3 app.py
 ```
