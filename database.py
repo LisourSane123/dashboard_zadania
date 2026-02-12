@@ -305,22 +305,25 @@ def get_tasks_for_today():
             today_tasks.append({**task, "completed_today": False})
             continue
 
+        # Użyj daty (nie datetime) — zadanie ma pojawić się o północy,
+        # niezależnie od godziny ukończenia
+        last_date = last.date()
         rec_val = task["recurrence_value"] or 1
 
         if rec_type == "days":
-            next_due = last + timedelta(days=rec_val)
+            next_due = last_date + timedelta(days=rec_val)
         elif rec_type == "weeks":
-            next_due = last + timedelta(weeks=rec_val)
+            next_due = last_date + timedelta(weeks=rec_val)
         elif rec_type == "months":
-            month = last.month + rec_val
-            year = last.year + (month - 1) // 12
+            month = last_date.month + rec_val
+            year = last_date.year + (month - 1) // 12
             month = ((month - 1) % 12) + 1
-            day = min(last.day, 28)
-            next_due = last.replace(year=year, month=month, day=day)
+            day = min(last_date.day, 28)
+            next_due = last_date.replace(year=year, month=month, day=day)
         else:
-            next_due = last + timedelta(days=1)
+            next_due = last_date + timedelta(days=1)
 
-        if now >= next_due:
+        if today >= next_due:
             today_tasks.append({**task, "completed_today": False})
         # else: not due yet — hide
 
