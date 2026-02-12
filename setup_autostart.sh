@@ -137,8 +137,8 @@ After=graphical-session.target
 Type=simple
 Environment=DISPLAY=:0
 ExecStart=/bin/bash $KIOSK_SCRIPT
-Restart=on-failure
-RestartSec=5
+Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=default.target

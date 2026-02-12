@@ -11,6 +11,14 @@ KIOSK_PROFILE="$SCRIPT_DIR/.chromium-kiosk"
 SERVER_PORT=5000
 DASHBOARD_URL="http://localhost:${SERVER_PORT}/"
 
+# ─── Blokada wielu instancji (flock) ───
+LOCKFILE="/tmp/dashboard-kiosk.lock"
+exec 200>"$LOCKFILE"
+if ! flock -n 200; then
+    echo "⚠  Inna instancja kiosku już działa. Kończę."
+    exit 0
+fi
+
 # ─── Sprawdź venv ───
 if [ ! -d "$VENV_DIR" ]; then
     echo "⚠  Venv nie znalezione w $VENV_DIR"
@@ -32,9 +40,10 @@ pkill -f "python.*app.py" 2>/dev/null || true
 
 # Zabij KAŻDĄ instancję Chromium — inaczej nowy --kiosk
 # otworzy URL w istniejącej sesji i natychmiast zakończy proces
-pkill -a chromium 2>/dev/null || true
-pkill -a chromium-browser 2>/dev/null || true
-sleep 2
+killall -q chromium-browser 2>/dev/null || true
+killall -q chromium 2>/dev/null || true
+pkill -f chromium 2>/dev/null || true
+sleep 3
 
 # Uruchom serwer z venv Python
 "$VENV_DIR/bin/python" app.py &
@@ -127,6 +136,9 @@ if [ -f "$KIOSK_PREFS" ]; then
     sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$KIOSK_PREFS" 2>/dev/null || true
 fi
 
+# Usuń stale lock pliki Chromium (mogą powodować "Opening in existing browser session")
+rm -f "$KIOSK_PROFILE/SingletonLock" "$KIOSK_PROFILE/SingletonSocket" "$KIOSK_PROFILE/SingletonCookie" 2>/dev/null || true
+
 $CHROMIUM \
     --user-data-dir="$KIOSK_PROFILE" \
     --noerrdialogs \
@@ -171,5 +183,50 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM EXIT
 
-wait $BROWSER_PID
+# Monitoruj Chromium – jeśli zamknie się za szybko (<30s), ponów próbę
+CHROMIUM_START=$(date +%s)
+wait $BROWSER_PID 2>/dev/null
+CHROMIUM_RUNTIME=$(( $(date +%s) - CHROMIUM_START ))
+
+if [ "$CHROMIUM_RUNTIME" -lt 30 ]; then
+    echo "⚠  Chromium zamknął się po ${CHROMIUM_RUNTIME}s. Ponawiam za 5s..."
+    sleep 5
+
+    # Wyczyść wszystko i spróbuj ponownie
+    killall -q chromium-browser 2>/dev/null || true
+    killall -q chromium 2>/dev/null || true
+    pkill -f chromium 2>/dev/null || true
+    sleep 3
+    rm -f "$KIOSK_PROFILE/SingletonLock" "$KIOSK_PROFILE/SingletonSocket" "$KIOSK_PROFILE/SingletonCookie" 2>/dev/null || true
+
+    $CHROMIUM \
+        --user-data-dir="$KIOSK_PROFILE" \
+        --noerrdialogs \
+        --disable-infobars \
+        --disable-session-crashed-bubble \
+        --disable-restore-session-state \
+        --disable-gpu \
+        --disable-software-rasterizer \
+        --disable-background-networking \
+        --disable-sync \
+        --disable-extensions \
+        --kiosk \
+        --incognito \
+        --disable-translate \
+        --disable-features=TranslateUI \
+        --disable-pinch \
+        --overscroll-history-navigation=0 \
+        --no-first-run \
+        --check-for-update-interval=31536000 \
+        --autoplay-policy=no-user-gesture-required \
+        --start-fullscreen \
+        --window-size=1024,600 \
+        --window-position=0,0 \
+        $CHROMIUM_PLATFORM_FLAGS \
+        "$DASHBOARD_URL" &
+    BROWSER_PID=$!
+    echo "  Chromium ponownie uruchomiony, PID: $BROWSER_PID"
+    wait $BROWSER_PID 2>/dev/null
+fi
+
 echo "▶ Kiosk zamknięty."
