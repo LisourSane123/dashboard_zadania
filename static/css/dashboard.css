@@ -48,6 +48,7 @@ main {
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     padding: 10px 0;
 }
 
@@ -56,7 +57,7 @@ main {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    padding: 0 12px;
+    padding: 0 12px 16px 12px;
 }
 
 /* ─── Single task ─── */
@@ -68,7 +69,7 @@ main {
     border-left: 5px solid #0f3460;
     overflow: hidden;
     transition: transform 0.3s ease, opacity 0.3s ease;
-    touch-action: pan-x;
+    touch-action: pan-y pan-x;
 }
 
 .task-item.recurring {

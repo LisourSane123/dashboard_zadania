@@ -324,12 +324,14 @@
                     isSwiping = true;
                     clearTimeout(dragState.holdTimer);
                 } else {
+                    // Ruch pionowy — pozwól na scroll, nie przechwytuj
                     clearTimeout(dragState.holdTimer);
                     return;
                 }
             }
 
             if (isSwiping && dx < 0) {
+                e.preventDefault();
                 el.style.transition = "none";
                 el.style.transform = `translateX(${dx}px)`;
             }
