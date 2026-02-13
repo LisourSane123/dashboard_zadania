@@ -22,6 +22,7 @@
     const nightOverlay = document.getElementById("night-overlay");
     const dateDisplay = document.getElementById("date-display");
     const timeDisplay = document.getElementById("time-display");
+    const scrollContainer = document.getElementById("tasks-container");
 
     // ─── State ───
     let sleepTimer = null;
@@ -308,7 +309,7 @@
                     startDrag(el, touch);
                 }
             }, HOLD_DURATION_MS);
-        }, { passive: true });
+        }, { passive: false });
 
         el.addEventListener("touchmove", (e) => {
             const touch = e.touches[0];
@@ -337,8 +338,7 @@
                 e.preventDefault();
                 const moveY = touch.clientY - lastY;
                 lastY = touch.clientY;
-                // Ręczny scroll — działa nawet gdy natywny touch scroll nie działa
-                window.scrollBy(0, -moveY);
+                scrollContainer.scrollTop -= moveY;
                 return;
             }
 
@@ -613,28 +613,25 @@
 
     // ════════════════════════════════════════════
     //  Global touch scroll fallback
-    //  Handles scroll on empty areas (gaps, header, etc.)
+    //  Scrolluje main kontener dotykiem w dowolnym miejscu
     // ════════════════════════════════════════════
     (function () {
-        let gStartY = 0, gLastY = 0, gActive = false;
+        let gLastY = 0, gActive = false;
         document.addEventListener("touchstart", (e) => {
-            // Nie przejmuj jeśli dotknięto task-item (ma swój handler)
             if (e.target.closest(".task-item")) return;
-            // Nie przejmuj filtrów
             if (e.target.closest(".filter-bar")) return;
-            gStartY = e.touches[0].clientY;
-            gLastY = gStartY;
+            if (e.target.closest(".sleep-overlay")) return;
+            if (e.target.closest(".night-overlay")) return;
+            gLastY = e.touches[0].clientY;
             gActive = true;
-        }, { passive: true });
+        }, { passive: false });
         document.addEventListener("touchmove", (e) => {
             if (!gActive) return;
+            e.preventDefault();
             const y = e.touches[0].clientY;
             const dy = y - gLastY;
             gLastY = y;
-            if (Math.abs(y - gStartY) > 8) {
-                e.preventDefault();
-                window.scrollBy(0, -dy);
-            }
+            scrollContainer.scrollTop -= dy;
         }, { passive: false });
         document.addEventListener("touchend", () => { gActive = false; });
         document.addEventListener("touchcancel", () => { gActive = false; });
