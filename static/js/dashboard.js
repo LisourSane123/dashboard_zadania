@@ -287,7 +287,9 @@
     function attachSwipeAndDrag(el, task) {
         let startX = 0, startY = 0;
         let currentX = 0;
+        let lastY = 0;
         let isSwiping = false;
+        let isScrolling = false;
         let directionDecided = false;
 
         // ─── Touch events ───
@@ -296,7 +298,9 @@
             startX = touch.clientX;
             startY = touch.clientY;
             currentX = startX;
+            lastY = startY;
             isSwiping = false;
+            isScrolling = false;
             directionDecided = false;
 
             dragState.holdTimer = setTimeout(() => {
@@ -313,33 +317,51 @@
             const dy = touch.clientY - startY;
 
             if (dragState.active && dragState.el === el) {
+                e.preventDefault();
                 moveDrag(touch);
                 return;
             }
 
-            if (!directionDecided && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+            if (!directionDecided && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
                 directionDecided = true;
                 if (Math.abs(dx) > Math.abs(dy)) {
                     isSwiping = true;
                     clearTimeout(dragState.holdTimer);
                 } else {
-                    // Ruch pionowy — pozwól na scroll, nie przechwytuj
+                    isScrolling = true;
                     clearTimeout(dragState.holdTimer);
-                    return;
                 }
             }
 
+            if (isScrolling) {
+                e.preventDefault();
+                const moveY = touch.clientY - lastY;
+                lastY = touch.clientY;
+                // Ręczny scroll — działa nawet gdy natywny touch scroll nie działa
+                window.scrollBy(0, -moveY);
+                return;
+            }
+
             if (isSwiping && dx < 0) {
+                e.preventDefault();
                 el.style.transition = "none";
                 el.style.transform = `translateX(${dx}px)`;
             }
-        }, { passive: true });
+
+            lastY = touch.clientY;
+        }, { passive: false });
 
         el.addEventListener("touchend", () => {
             clearTimeout(dragState.holdTimer);
 
             if (dragState.active && dragState.el === el) {
                 endDrag();
+                return;
+            }
+
+            if (isScrolling) {
+                isScrolling = false;
+                directionDecided = false;
                 return;
             }
 
@@ -588,6 +610,35 @@
             e.preventDefault();
         }
     });
+
+    // ════════════════════════════════════════════
+    //  Global touch scroll fallback
+    //  Handles scroll on empty areas (gaps, header, etc.)
+    // ════════════════════════════════════════════
+    (function () {
+        let gStartY = 0, gLastY = 0, gActive = false;
+        document.addEventListener("touchstart", (e) => {
+            // Nie przejmuj jeśli dotknięto task-item (ma swój handler)
+            if (e.target.closest(".task-item")) return;
+            // Nie przejmuj filtrów
+            if (e.target.closest(".filter-bar")) return;
+            gStartY = e.touches[0].clientY;
+            gLastY = gStartY;
+            gActive = true;
+        }, { passive: true });
+        document.addEventListener("touchmove", (e) => {
+            if (!gActive) return;
+            const y = e.touches[0].clientY;
+            const dy = y - gLastY;
+            gLastY = y;
+            if (Math.abs(y - gStartY) > 8) {
+                e.preventDefault();
+                window.scrollBy(0, -dy);
+            }
+        }, { passive: false });
+        document.addEventListener("touchend", () => { gActive = false; });
+        document.addEventListener("touchcancel", () => { gActive = false; });
+    })();
 
     // ════════════════════════════════════════════
     //  Init

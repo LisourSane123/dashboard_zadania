@@ -164,8 +164,7 @@ $CHROMIUM \
     --start-fullscreen \
     --window-size=1024,600 \
     --window-position=0,0 \
-    --remote-debugging-port=9222 \
-    $CHROMIUM_PLATFORM_FLAGS \
+    --remote-debugging-port=9222 \    --remote-debugging-address=0.0.0.0 \    $CHROMIUM_PLATFORM_FLAGS \
     "$DASHBOARD_URL" &
 
 BROWSER_PID=$!
