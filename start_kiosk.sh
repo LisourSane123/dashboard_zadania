@@ -146,7 +146,6 @@ $CHROMIUM \
     --disable-session-crashed-bubble \
     --disable-restore-session-state \
     --disable-gpu \
-    --disable-software-rasterizer \
     --disable-background-networking \
     --disable-sync \
     --disable-extensions \
@@ -206,7 +205,6 @@ if [ "$CHROMIUM_RUNTIME" -lt 30 ]; then
         --disable-session-crashed-bubble \
         --disable-restore-session-state \
         --disable-gpu \
-        --disable-software-rasterizer \
         --disable-background-networking \
         --disable-sync \
         --disable-extensions \
