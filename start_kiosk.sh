@@ -137,6 +137,9 @@ if [ -f "$KIOSK_PREFS" ]; then
 fi
 
 # Usuń stale lock pliki Chromium (mogą powodować "Opening in existing browser session")
+# Wyczyść cache przeglądarki kiosku
+rm -rf "$KIOSK_PROFILE/Default/Cache" "$KIOSK_PROFILE/Default/Code Cache" 2>/dev/null || true
+
 rm -f "$KIOSK_PROFILE/SingletonLock" "$KIOSK_PROFILE/SingletonSocket" "$KIOSK_PROFILE/SingletonCookie" 2>/dev/null || true
 
 $CHROMIUM \
@@ -161,6 +164,7 @@ $CHROMIUM \
     --start-fullscreen \
     --window-size=1024,600 \
     --window-position=0,0 \
+    --remote-debugging-port=9222 \
     $CHROMIUM_PLATFORM_FLAGS \
     "$DASHBOARD_URL" &
 

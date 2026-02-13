@@ -8,6 +8,12 @@ from database import init_db, add_task, update_task, delete_task, get_all_tasks,
     reorder_tasks, set_task_position
 
 app = Flask(__name__)
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Disable static file caching
+
+
+@app.context_processor
+def inject_cache_bust():
+    return {"cache_bust": int(time.time())}
 
 
 @app.route("/favicon.ico")
