@@ -313,7 +313,6 @@
             const dy = touch.clientY - startY;
 
             if (dragState.active && dragState.el === el) {
-                e.preventDefault();
                 moveDrag(touch);
                 return;
             }
@@ -331,11 +330,10 @@
             }
 
             if (isSwiping && dx < 0) {
-                e.preventDefault();
                 el.style.transition = "none";
                 el.style.transform = `translateX(${dx}px)`;
             }
-        }, { passive: false });
+        }, { passive: true });
 
         el.addEventListener("touchend", () => {
             clearTimeout(dragState.holdTimer);
@@ -441,6 +439,9 @@
         dragState.active = true;
         dragState.el = el;
 
+        // Zablokuj natywny scroll tylko na czas drag
+        el.style.touchAction = "none";
+
         const rect = el.getBoundingClientRect();
         dragState.offsetY = (event.clientY || event.touches?.[0]?.clientY || 0) - rect.top;
 
@@ -498,6 +499,7 @@
         el.style.zIndex = "";
         el.style.transform = "";
         el.style.transition = "";
+        el.style.touchAction = "";
 
         tasksList.querySelectorAll(".task-item").forEach(i => i.classList.remove("drag-over"));
         dragState.active = false;
@@ -519,6 +521,7 @@
         el.style.zIndex = "";
         el.style.transform = "";
         el.style.transition = "";
+        el.style.touchAction = "";
         tasksList.querySelectorAll(".task-item").forEach(i => i.classList.remove("drag-over"));
         dragState.active = false;
         dragState.el = null;

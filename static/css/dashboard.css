@@ -69,7 +69,7 @@ main {
     border-left: 5px solid #0f3460;
     overflow: hidden;
     transition: transform 0.3s ease, opacity 0.3s ease;
-    touch-action: pan-y pan-x;
+    touch-action: pan-y;
 }
 
 .task-item.recurring {
