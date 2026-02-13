@@ -337,6 +337,7 @@
             if (isScrolling) {
                 e.preventDefault();
                 const moveY = touch.clientY - lastY;
+                // DEBUG: console.log("Scrolling task-item: ", moveY, " New scrollTop:", scrollContainer.scrollTop - moveY);
                 lastY = touch.clientY;
                 scrollContainer.scrollTop -= moveY;
                 return;

@@ -16,6 +16,8 @@ html, body {
     user-select: none;
     -webkit-user-select: none;
     cursor: default;
+    touch-action: none; /* Disable browser handling of gestures */
+    overscroll-behavior: none;
 }
 
 /* ─── Header ─── */
@@ -52,9 +54,10 @@ main {
     left: 0;
     right: 0;
     bottom: 56px;
-    overflow-y: scroll;
-    -webkit-overflow-scrolling: touch;
+    overflow-y: scroll; /* Allow JS to manipulate scrollTop */
     padding: 10px 0;
+    touch-action: none;
+    overscroll-behavior: none;
 }
 
 /* ─── Task list ─── */
@@ -74,6 +77,7 @@ main {
     border-left: 5px solid #0f3460;
     overflow: hidden;
     transition: transform 0.3s ease, opacity 0.3s ease;
+    touch-action: none;
 }
 
 .task-item.recurring {
